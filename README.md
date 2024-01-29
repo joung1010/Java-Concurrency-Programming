@@ -628,7 +628,6 @@ JVM은 자바 애플리케이션을 실행하는 환경입니다. JVM 내부에�
 1. **`Thread` 클래스 상속**:
 
     ```java
-    javaCopy code
     class MyThread extends Thread {
         public void run() {
             // 스레드가 수행할 작업
@@ -644,7 +643,6 @@ JVM은 자바 애플리케이션을 실행하는 환경입니다. JVM 내부에�
 2. **`Runnable` 인터페이스 구현**:
 
     ```java
-    javaCopy code
     class MyRunnable implements Runnable {
         public void run() {
             // 스레드가 수행할 작업
@@ -660,7 +658,6 @@ JVM은 자바 애플리케이션을 실행하는 환경입니다. JVM 내부에�
 3. **람다 표현식 사용 (Java 8 이상)**:
 
     ```java
-    javaCopy code
     Runnable task = () -> {
         // 스레드가 수행할 작업
     };
@@ -740,7 +737,6 @@ JVM은 자바 애플리케이션을 실행하는 환경입니다. JVM 내부에�
 예를 들어, **`main`** 스레드에서 새로운 스레드를 생성하고 시작하는 간단한 예제
 
 ```java
-javaCopy code
 public class MyThread extends Thread {
     public void run() {
         System.out.println("새로운 스레드 실행 중");
