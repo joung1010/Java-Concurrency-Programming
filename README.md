@@ -1187,3 +1187,289 @@ Java에서 스레드 우선순위는 스레드 스케줄링에서 각 스레드�
 
 - 우선순위에 의존하는 프로그램 설계는 일반적으로 권장되지 않습니다. 다양한 JVM과 운영 체제에서의 스레드 스케줄링 정책의 차이로 인해 예측하기 어려울 수 있기 때문이다.
 - 우선순위를 사용하여 스레드 간의 경쟁 조건(race condition)을 해결하려고 시도하는 것은 좋지 않은 접근 방식입니다. 대신, 적절한 동기화 메커니즘을 사용하는 것이 바람직합니다.
+  
+# 스레드 활용  
+
+## 스레드 예외처리
+
+Java에서 **`Thread.UncaughtExceptionHandler`** 인터페이스는 스레드에서 처리되지 않은 예외(uncaught exception)를 처리하기 위해 사용됩니다. 일반적으로 스레드 내에서 발생한 예외가 해당 스레드의 **`run()`** 메소드 내에서 적절히 처리되지 않으면, 이 인터페이스를 구현하는 핸들러를 통해 해당 예외를 잡아 처리할 수 있습니다. 기본적으로 스레드의 run() 은 예외를 던질 수 없기 때문에 예외가 발생할 경우  run() 안에서만 예외를 처리해야한다. 이때 RuntimeException 타입의 예외가 발생할 지라도 스레드 밖에서 예외를 캐치할 수 없고 사라진다.
+
+### **UncaughtExceptionHandler 사용 방법**
+
+캐치 되지 않는 예외에 의해 Thread가 갑자기 종료됬을때 호출되는 핸들러 인터페이스 이다.
+
+1. **인터페이스 구현**: **`Thread.UncaughtExceptionHandler`** 인터페이스를 구현하는 클래스를 정의합니다. 이 클래스는 **`uncaughtException(Thread t, Throwable e)`** 메소드를 구현해야 합니다. 이 메소드는 예외가 발생한 스레드와 해당 예외 객체를 인자로 받는다.
+2. **핸들러 설정**: 스레드 또는 스레드 그룹에 이 핸들러를 설정합니다. 이를 위해 **`Thread`** 클래스의 **`setUncaughtExceptionHandler(Thread.UncaughtExceptionHandler eh)`** 메소드를 사용한다
+- **static void setDefaultUncaughtExceptionHandler**
+    - 모든 스레드에서 발생하는 uncaughtException 을 처리하는 정적 메서드
+- **void setUncaughtExceptionHandler(UncaughtExceptionHandler ueh)**
+    - 대상 스레드에서 발생하는 uncaughtException 을 처리하는 인스턴스 메서드
+    - setDefaultUncaughtExceptionHandler 보다 우선순위가 높다
+
+### **예제 코드**
+
+```java
+javaCopy code
+public class MyUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
+    @Override
+    public void uncaughtException(Thread t, Throwable e) {
+        System.out.println("An exception has been captured in thread: " + t.getName());
+        System.out.println("Exception: " + e.getClass().getName() + ": " + e.getMessage());
+        e.printStackTrace(System.out);
+    }
+}
+
+public class MyThread extends Thread {
+    @Override
+    public void run() {
+        throw new RuntimeException("Intentional Exception");
+    }
+
+    public static void main(String[] args) {
+        MyThread thread = new MyThread();
+        thread.setUncaughtExceptionHandler(new MyUncaughtExceptionHandler());
+        thread.start();
+    }
+}
+
+```
+
+이 예제에서 **`MyUncaughtExceptionHandler`**는 **`Thread.UncaughtExceptionHandler`**를 구현합니다. **`MyThread`** 클래스의 **`run()`** 메소드는 의도적으로 예외를 발생시키고, 이 예외는 **`MyUncaughtExceptionHandler`**에 의해 처리됩니다.
+
+### **사용 시 주의사항**
+
+- **`UncaughtExceptionHandler`**는 스레드가 예외로 인해 종료될 때 실행됩니다. 따라서 예외 처리 로직을 이 핸들러에 구현할 때는 스레드의 안전한 종료와 자원 해제에 주의해야 한다.
+- 모든 스레드에 대해 동일한 **`UncaughtExceptionHandler`**를 사용할 수 있으며, 필요에 따라 각 스레드에 개별적으로 핸들러를 설정할 수도 있다.
+- 기본적으로 스레드에서 발생하는 예외는 콘솔에 출력되지만, **`UncaughtExceptionHandler`**를 사용하면 예외 정보를 로깅하거나, 애플리케이션에 특정한 조치를 취하는 등 보다 세밀한 예외 처리가 가능하다.
+
+## 스레드 중지
+
+자바에서 무한 반복이나 지속적인 실행 중에 있는 스레드를 중지하거나 종료할 수 있는 API를 더이상 사용할 수 없다.(suspend(), stop()) 이때 스레드를 중지하는 데 사용되는 두 가지 일반적인 방법은 플래그 변수(flag variable) 사용과 **`interrupt()`** 메소드 호출이다. 이 두 방법은 스레드를 안전하게 중지시키기 위해 사용되며, 각각의 특징과 사용 사례가 다릅니다.
+
+### **1. 플래그 변수 사용**
+
+- **방법**: 스레드가 실행 중인 동안 계속 확인하는 boolean 플래그 변수를 사용합니다. 외부에서 이 변수를 변경함으로써 스레드에 중지 신호를 보낼 수 있습니다. 이대 이 플래그 변수는 동시성 문제로 가능한 atomic 변수나 volatile 키워드를 사용하도록 한다.
+- **사용 사례**: 스레드가 특정 작업을 반복적으로 수행하고 있을 때, 플래그 변수의 상태를 확인하여 중지 여부를 결정합니다.
+- **장점**: 구현이 간단하고, 스레드의 특정 지점에서만 중지를 확인할 수 있어 통제가 용이합니다.
+- **단점**: 스레드가 바쁜 대기 상태(busy-waiting)에 있지 않고 블로킹 상태(blocking state)인 경우(예: **`sleep()`**, **`wait()`** 호출 시), 플래그 변수를 확인할 수 없어 중지가 지연될 수 있습니다.
+
+```java
+javaCopy code
+public class MyThread extends Thread {
+    private volatile boolean running = true;
+
+    public void run() {
+        while (running) {
+            // 스레드 작업 수행
+        }
+    }
+
+    public void stopThread() {
+        running = false;
+    }
+}
+
+```
+
+```java
+import java.util.concurrent.atomic.AtomicBoolean;
+
+public class MyThread extends Thread {
+    private AtomicBoolean running = new AtomicBoolean(true);
+
+    public void run() {
+        while (running.get()) {
+            // 스레드 작업 수행
+            System.out.println("스레드 실행 중");
+            try {
+                Thread.sleep(1000); // 1초 대기
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // 인터럽트 상태 복원
+            }
+        }
+        System.out.println("스레드 종료");
+    }
+
+    public void stopThread() {
+        running.set(false);
+    }
+
+    public static void main(String[] args) throws InterruptedException {
+        MyThread myThread = new MyThread();
+        myThread.start();
+        Thread.sleep(3000); // 메인 스레드는 3초 동안 대기
+        myThread.stopThread(); // 스레드 중지 요청
+    }
+}
+```
+
+### **2. interrupt() 메소드 사용**
+
+- **방법**: **`Thread`** 클래스의 **`interrupt()`** 메소드를 호출하여 스레드에 인터럽트를 발생시킵니다. 스레드 내에서 **`InterruptedException`**이 발생하거나, 스레드의 **`interrupted()`** 상태를 확인하여 중지 여부를 결정할 수 있습니다.
+- **사용 사례**: 스레드가 블로킹 상태(예: **`sleep()`**, **`wait()`**, **`join()`** 호출 시)에 있을 때 유용합니다.
+- **장점**: 블로킹 상태에 있는 스레드도 즉시 인터럽트될 수 있으며, **`InterruptedException`**을 통해 스레드를 안전하게 중지시킬 수 있습니다.
+- **단점**: 인터럽트 메커니즘을 정확히 이해하고 사용해야 하며, 스레드가 블로킹 상태가 아닌 경우 별도로 인터럽트 상태를 확인하는 로직을 추가해야 합니다.
+
+```java
+
+public class MyThread extends Thread {
+    public void run() {
+        try {
+            while (!Thread.interrupted()) {
+                // 스레드 작업 수행
+            }
+        } catch (InterruptedException e) {
+            // 스레드 중지 처리
+        }
+    }
+}
+
+```
+
+- 스레드가 실행되면 Thread.interrupted() 가 false 이므로 반복문을 계속 실행한다
+- 인터럽트가 발생하면 Thread.interrupted() 은 true 이고 반복문을 빠져 나오면서 스레드는 종료된다
+- 인터럽트 상태는 해제 된다
+
+```java
+public class MyRunnable extends Runnable{
+    public void run() {
+        try {
+            while (!Thread.currentThread().isInterrupted()) {
+                // 스레드 작업 수행
+            }
+        } catch (InterruptedException e) {
+            // 스레드 중지 처리
+        }
+    }
+}
+```
+
+- 스레드가 실행되면 Thread.currentThread().isInterrupted() 가 false 이므로 반복문을 계속 실행한다
+- 인터럽트가 발생하면 Thread.currentThread().isInterrupted() 은 true 이고 반복문을 빠져 나오면서 스레드는 종료된다
+- 인터럽트 상태는 계속 유지 된다
+
+## **사용자 스레드** vs **데몬 스레드**
+
+Java에서 스레드는 크게 두 가지 유형으로 분류됩니다: 사용자 스레드(User Threads)와 데몬 스레드(Daemon Threads). 이 두 유형의 스레드는 용도와 JVM에서의 동작 방식이 다릅니다. 사용자 스레드는 사용자 스레드를 낳고 데몬 스레드는 데몬 스레드를 낳는다. 즉 자식 스레드는 부모 스레드의 상태를 상속 받는다. 자바가 실행되면 JVM은 사용자 스레드인 메인스레드와 나머지 데몬 스레드를 동시에 생성하고 시작한다.
+
+### **메인 스레드 (Main Thread)**
+
+- **정의**: 메인 스레드는 Java 애플리케이션의 진입점인 **`main()`** 메소드를 실행하는 스레드입니다.
+- **특징**: 메인 스레드는 모든 Java 애플리케이션의 시작점이며, 기본적으로 사용자 스레드입니다.
+- **용도**: 애플리케이션의 시작과 초기화, 다른 사용자 스레드의 생성 및 관리 등을 담당합니다.
+
+메인 스레드는 어플리케이션을 실행하는최초의 스레드이자 실행을 완료하는 마지막 스레드의 역할을 한다. 메인 스레드에서 여러 하위 스레드를 추가로 시작할 수 있고 하위 스레드는 또 여러 하위 스레드를 시작할 수 있다 메인 스레드가 사용자 스레드이기 때문에 하위 스레드는 모두 사용자 스레드가 된다.
+
+### **사용자 스레드 (User Threads)**
+
+- **정의**: 사용자 스레드는 애플리케이션의 주 작업을 수행하는 스레드입니다. 이들은 애플리케이션의 핵심 기능을 담당합니다.
+- **특징**: 사용자 스레드가 실행 중인 경우 JVM은 종료되지 않습니다. JVM은 모든 사용자 스레드가 작업을 완료할 때까지 계속 실행 상태를 유지합니다.
+- **용도**: 일반적인 작업 수행, 계산 작업, I/O 작업 등 애플리케이션의 주된 기능을 수행하는 데 사용됩니다.
+
+사용자 스레드는 메인 스레드에서 직접 생성한 스레드를 의미한다. 이 각각의 스레드는 독립적인 생명주기를 가지고 실행하게 된다.추가적으로 자바가 제공하는 스레드 풀인 ThreadPoolExecutor 은 사용자 스레드를 생성한다.
+
+### **데몬 스레드 (Daemon Threads)**
+
+- **정의**: 데몬 스레드는 백그라운드에서 보조적인 역할을 수행하는 스레드입니다. 사용자 스레드의 작업을 보조하거나, 긴 시간 동안 실행되는 낮은 우선순위의 작업을 수행합니다.
+- **특징**: 모든 사용자 스레드가 종료되면, 데몬 스레드는 강제적으로 종료됩니다. 즉, 데몬 스레드가 실행 중이더라도 JVM은 사용자 스레드가 모두 종료되면 종료됩니다.
+- **용도**: 로그 기록, 시스템 모니터링, 가비지 컬렉션 등의 백그라운드 작업에 주로 사용됩니다.
+- **설정 방법**: **`setDaemon(true)`** 메소드를 호출하여 스레드를 데몬 스레드로 설정할 수 있습니다. 이 설정은 스레드가 시작되기 전에 수행해야 합니다.
+- **확인방법**: `**isDaemon()`** 메소드를 통해 이 스레드가 데몬인지 아닌지 확인합니다.
+
+데몬 스레드는 JVM 에서 생성한 스레드이거나 직접 데몬 스레드로 생성한 경우를 말한다. 데몬 스레드의 생명주기는 사용자 스레드에 따라 다르며 낮은 우선순위를 가지고 background 에서 실행된다. 데몬 스레드는 사용자 스레드를 보조 및 지원하는 성격을 가진 스레드로서 보통 사용자 작업을 방해하지 않으면서 백그라운드에서 자동으로 작동되는 기능을 가진 스레드이다. 자바가 제공하는 스레드 풀인 ForkJoinPool 은 데몬 스레드를 생성한다.
+
+## 스레드 그룹
+
+Java에서 **`ThreadGroup`**은 여러 스레드를 하나의 객체로 묶어 관리할 수 있게 해주는 메커니즘입니다. 스레드 그룹을 사용하면 스레드들을 그룹 단위로 쉽게 제어하고 정보를 얻을 수 있으며, 스레드들을 계층적으로 관리할 수도 있다. 이때 한 스레드 그룹 안에 다른 스레드 그룹도 포함될 수 있고 그룹 내의 모든 스레드는 한번에 종료하거나 중단할 수 있다.
+
+스레드는 반드시 하나의 스레드 그룹에 포함되어야 하며 명시적으로 스레드 그룹에 포함시키지 않으면 기본적으로 자신을 생성한 스레드가 속해 있는 스레드 그룹에 포함되어 진다.(일반적으로 main 스레드에서 생성하는 모든 세레드는 main 스레드의 그룹에서 속함)
+
+### **ThreadGroup의 주요 기능**
+
+1. **스레드 관리**: **`ThreadGroup`**은 그 안에 속한 모든 스레드를 추적하고 관리할 수 있게 해줍니다. 예를 들어, 그룹 내 모든 스레드에 대해 인터럽트를 호출하거나 스레드의 우선순위를 변경할 수 있습니다.
+2. **보안 및 접근 제어**: **`ThreadGroup`**을 사용하면 보안상의 이유로 특정 그룹의 스레드에만 작업을 제한할 수 있습니다.
+3. **에러 처리**: **`ThreadGroup`**은 그룹 내 스레드에서 발생하는 예외를 캡처하고 처리하는 데 사용될 수 있습니다.
+4. **스레드 계층 구조**: 스레드 그룹은 다른 스레드 그룹을 포함할 수 있어, 스레드 계층 구조를 형성할 수 있습니다. 이는 스레드 관리를 계층적으로 수행할 수 있게 해줍니다.
+
+### **ThreadGroup 사용 예시**
+
+```java
+javaCopy code
+public class MyRunnable implements Runnable {
+    @Override
+    public void run() {
+        System.out.println(Thread.currentThread().getName() + " is running");
+    }
+
+    public static void main(String[] args) {
+        ThreadGroup threadGroup = new ThreadGroup("MyThreadGroup");
+
+        Thread t1 = new Thread(threadGroup, new MyRunnable(), "Thread 1");
+        Thread t2 = new Thread(threadGroup, new MyRunnable(), "Thread 2");
+
+        t1.start();
+        t2.start();
+
+        System.out.println("Thread Group Name: " + threadGroup.getName());
+    }
+}
+
+```
+
+이 예제에서는 "MyThreadGroup"이라는 이름의 **`ThreadGroup`**을 생성하고, 이 그룹에 두 개의 스레드를 할당합니다. 이 그룹에 속한 스레드들은 **`run()`** 메소드에서 간단한 메시지를 출력합니다.
+
+### **JVM 스레드 그룹 생성 과정**
+
+1. **시스템 스레드 그룹 생성**: JVM이 시작될 때, 가장 먼저 "system"이라는 최상위 스레드 그룹이 생성됩니다. 이 그룹은 JVM의 모든 스레드 그룹의 루트입니다.
+2. **메인 스레드 그룹 생성**: "system" 스레드 그룹 내에 "main" 스레드 그룹이 생성됩니다. 사용자가 작성한 메인 애플리케이션의 스레드들, 즉 **`public static void main(String[] args)`** 메소드를 실행하는 스레드는 이 "main" 그룹에 속하게 됩니다.
+3. **기타 시스템 스레드 그룹**: JVM은 내부적으로 여러 가지 서비스를 수행하기 위해 데몬 스레드 그룹(예: "Finalizer", "Reference Handler" 등)을 생성합니다. 이들 스레드 그룹은 주로 가비지 컬렉션, 객체 최종화, JVM 내부 참조 처리 등의 작업을 담당합니다.
+
+### **스레드 그룹의 계층 구조**
+
+- **계층적 구조**: 스레드 그룹은 계층적인 구조를 가지고 있습니다. 모든 스레드 그룹은 최상위 "system" 그룹의 하위 그룹이거나, 다른 스레드 그룹의 하위 그룹일 수 있습니다.
+- **스레드 할당**: 각 스레드 그룹은 하나 이상의 스레드를 포함할 수 있으며, 스레드는 생성 시 할당된 스레드 그룹에 속하게 됩니다.
+- **자식 스레드 그룹**: 스레드 그룹은 다른 스레드 그룹을 포함할 수도 있으며, 이를 통해 더 세분화된 스레드 관리가 가능합니다.
+
+### **ThreadGroup**
+
+### **생성자**
+
+1. **ThreadGroup(String name)**
+    - **설명**: 지정된 이름으로 새 스레드 그룹을 생성합니다. 이 그룹의 부모는 현재 스레드가 속한 스레드 그룹이 됩니다.
+    - **매개변수**: **`name`** - 스레드 그룹의 이름입니다.
+2. **ThreadGroup(ThreadGroup parent, String name)**
+    - **설명**: 지정된 부모 스레드 그룹에 속하는 새 스레드 그룹을 생성합니다.
+    - **매개변수**:
+        - **`parent`** - 이 스레드 그룹의 부모 그룹입니다.
+        - **`name`** - 스레드 그룹의 이름입니다.
+
+### **주요 메소드**
+
+1. **void activeCount()**
+    - **설명**: 현재 스레드 그룹과 하위 그룹에서 활성화된 스레드의 추정 수를 반환합니다.
+2. **void activeGroupCount()**
+    - **설명**: 스레드 그룹에서 활성화된 하위 스레드 그룹의 추정 수를 반환합니다.
+3. **void checkAccess()**
+    - **설명**: 현재 스레드가 이 스레드 그룹에 대한 수정 권한을 가지고 있는지 확인합니다.
+4. **void destroy()**
+    - **설명**: 스레드 그룹을 파괴하고, 모든 하위 그룹을 파괴합니다. 스레드 그룹이 비어 있어야 합니다.
+5. **int enumerate(Thread[] list)**
+    - **설명**: 스레드 그룹과 그 하위 그룹에서 활성화된 스레드를 주어진 배열에 복사합니다.
+6. **int enumerate(ThreadGroup[] list)**
+    - **설명**: 이 스레드 그룹의 하위 그룹을 주어진 배열에 복사합니다.
+7. **int getMaxPriority()**
+    - **설명**: 이 스레드 그룹의 최대 우선순위를 반환합니다.
+8. **String getName()**
+    - **설명**: 이 스레드 그룹의 이름을 반환합니다.
+9. **ThreadGroup getParent()**
+    - **설명**: 이 스레드 그룹의 부모 그룹을 반환합니다.
+10. **void interrupt()**
+    - **설명**: 이 스레드 그룹에 속한 모든 스레드에 **`interrupt()`**를 호출합니다.
+11. **boolean isDaemon()**
+    - **설명**: 이 스레드 그룹이 데몬 그룹인지 여부를 반환합니다.
+12. **void setDaemon(boolean daemon)**
+    - **설명**: 스레드 그룹을 데몬 그룹으로 설정하거나 해제합니다.
+13. **void setMaxPriority(int pri)**
+    - **설명**: 이 스레드 그룹의 최대 우선순위를 설정합니다.
+14. **void uncaughtException(Thread t, Throwable e)**
+    - **설명**: 이 스레드 그룹에서 처리되지 않은 예외가 발생했을 때 호출됩니다.
