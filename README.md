@@ -1094,7 +1094,7 @@ Interrupt 의 사전적 의미는 ‘방해하다’ 라는 뜻으로 어떤 주
 
 ### interruptedException
 
-- InterruptedException 은 interrupt() 메카니즘의 일부이며 **대기나 차단 등 블록킹 상태에 있거나 블록킹 상태를 만나는 시점**의 스레드에 인터럽트 할 때 발생하는 예외이다.
+- InterruptedException 은 interrupt() 메카니즘의 일부이며 **대기나 차단 등 블록킹 상태에 있거나 블록킹 상태를 만나는 시점**의 스레드에 **인터럽트 할 때 발생**하는 예외이다.
 - InterruptedException 이 발생하면 인터럽트 **상태는 자동으로 초기화 된다**. 즉 Thread.interrupted() 한 것과 같은 상태로 된다( interrupted = false)
 - 다른 곳에서 인터럽트 상태를 참조하고 있다면 예외 구문에서 대상 스레드에 다시 interrupt() 해야 할 수도 있다
 - InterruptedException 이 발생하는 케이스는 다음과 같다
