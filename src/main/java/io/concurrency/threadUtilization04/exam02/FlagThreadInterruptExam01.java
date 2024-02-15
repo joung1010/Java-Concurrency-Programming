@@ -1,6 +1,6 @@
 package io.concurrency.threadUtilization04.exam02;
 
-public class FlagThreadInterrupt {
+public class FlagThreadInterruptExam01 {
     private static boolean running = true;
 //    private volatile static boolean running = true;
     public static void main(String[] args) {
@@ -36,7 +36,7 @@ public class FlagThreadInterrupt {
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            System.out.println("Thread 2 is Done.. : ");
+            System.out.println("Thread 2 is Done..  ");
             running = false;
         }).start();
 
