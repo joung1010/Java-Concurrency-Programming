@@ -1446,43 +1446,16 @@ Java에서 스레드는 크게 두 가지 유형으로 분류됩니다: 사용�
 
 ## 스레드 그룹
 
-Java에서 **`ThreadGroup`**은 여러 스레드를 하나의 객체로 묶어 관리할 수 있게 해주는 메커니즘입니다. 스레드 그룹을 사용하면 스레드들을 그룹 단위로 쉽게 제어하고 정보를 얻을 수 있으며, 스레드들을 계층적으로 관리할 수도 있다. 이때 한 스레드 그룹 안에 다른 스레드 그룹도 포함될 수 있고 그룹 내의 모든 스레드는 한번에 종료하거나 중단할 수 있다.
+Java에서 `ThreadGroup`은 여러 스레드를 하나의 객체로 묶어 관리할 수 있게 해주는 메커니즘입니다. 스레드 그룹을 사용하면 스레드들을 그룹 단위로 쉽게 제어하고 정보를 얻을 수 있으며, 스레드들을 계층적으로 관리할 수도 있다. 이때 한 스레드 그룹 안에 다른 스레드 그룹도 포함될 수 있고 그룹 내의 모든 스레드는 한번에 종료하거나 중단할 수 있다.
 
-스레드는 반드시 하나의 스레드 그룹에 포함되어야 하며 명시적으로 스레드 그룹에 포함시키지 않으면 기본적으로 자신을 생성한 스레드가 속해 있는 스레드 그룹에 포함되어 진다.(일반적으로 main 스레드에서 생성하는 모든 세레드는 main 스레드의 그룹에서 속함)
+스레드는 **반드시 하나의 스레드 그룹에 포함되어야 하며** 명시적으로 스레드 그룹에 포함시키지 않으면 **기본적으로 자신을 생성한 스레드가 속해 있는 스레드 그룹에 포함**되어 진다.(일반적으로 main 스레드에서 생성하는 모든 세레드는 main 스레드의 그룹에서 속함)
 
 ### **ThreadGroup의 주요 기능**
 
-1. **스레드 관리**: **`ThreadGroup`**은 그 안에 속한 모든 스레드를 추적하고 관리할 수 있게 해줍니다. 예를 들어, 그룹 내 모든 스레드에 대해 인터럽트를 호출하거나 스레드의 우선순위를 변경할 수 있습니다.
-2. **보안 및 접근 제어**: **`ThreadGroup`**을 사용하면 보안상의 이유로 특정 그룹의 스레드에만 작업을 제한할 수 있습니다.
-3. **에러 처리**: **`ThreadGroup`**은 그룹 내 스레드에서 발생하는 예외를 캡처하고 처리하는 데 사용될 수 있습니다.
+1. **스레드 관리**: `ThreadGroup`은 그 안에 속한 모든 스레드를 추적하고 관리할 수 있게 해줍니다. 예를 들어, 그룹 내 모든 스레드에 대해 인터럽트를 호출하거나 스레드의 우선순위를 변경할 수 있습니다.
+2. **보안 및 접근 제어**: `ThreadGroup`을 사용하면 보안상의 이유로 특정 그룹의 스레드에만 작업을 제한할 수 있습니다.
+3. **에러 처리**: `ThreadGroup`은 그룹 내 스레드에서 발생하는 예외를 캡처하고 처리하는 데 사용될 수 있습니다.
 4. **스레드 계층 구조**: 스레드 그룹은 다른 스레드 그룹을 포함할 수 있어, 스레드 계층 구조를 형성할 수 있습니다. 이는 스레드 관리를 계층적으로 수행할 수 있게 해줍니다.
-
-### **ThreadGroup 사용 예시**
-
-```java
-javaCopy code
-public class MyRunnable implements Runnable {
-    @Override
-    public void run() {
-        System.out.println(Thread.currentThread().getName() + " is running");
-    }
-
-    public static void main(String[] args) {
-        ThreadGroup threadGroup = new ThreadGroup("MyThreadGroup");
-
-        Thread t1 = new Thread(threadGroup, new MyRunnable(), "Thread 1");
-        Thread t2 = new Thread(threadGroup, new MyRunnable(), "Thread 2");
-
-        t1.start();
-        t2.start();
-
-        System.out.println("Thread Group Name: " + threadGroup.getName());
-    }
-}
-
-```
-
-이 예제에서는 "MyThreadGroup"이라는 이름의 **`ThreadGroup`**을 생성하고, 이 그룹에 두 개의 스레드를 할당합니다. 이 그룹에 속한 스레드들은 **`run()`** 메소드에서 간단한 메시지를 출력합니다.
 
 ### **JVM 스레드 그룹 생성 과정**
 
@@ -1496,7 +1469,7 @@ public class MyRunnable implements Runnable {
 - **스레드 할당**: 각 스레드 그룹은 하나 이상의 스레드를 포함할 수 있으며, 스레드는 생성 시 할당된 스레드 그룹에 속하게 됩니다.
 - **자식 스레드 그룹**: 스레드 그룹은 다른 스레드 그룹을 포함할 수도 있으며, 이를 통해 더 세분화된 스레드 관리가 가능합니다.
 
-### **ThreadGroup**
+### **ThreadGroup Class**
 
 ### **생성자**
 
@@ -1536,6 +1509,35 @@ public class MyRunnable implements Runnable {
 12. **void setDaemon(boolean daemon)**
     - **설명**: 스레드 그룹을 데몬 그룹으로 설정하거나 해제합니다.
 13. **void setMaxPriority(int pri)**
-    - **설명**: 이 스레드 그룹의 최대 우선순위를 설정합니다.
+    - **설명**: 이 스레드 그룹의 최대 우선순위를 설정합니다. 이때 그룹에 포함된 스레드들은 그룹에서 지정한 우선순위 보다 높은 우선순위를 설정할 수 없다.
 14. **void uncaughtException(Thread t, Throwable e)**
     - **설명**: 이 스레드 그룹에서 처리되지 않은 예외가 발생했을 때 호출됩니다.
+15. **void list**
+    - **설명** : 현재 그룹에 포함된 스레드와 하위 그룹에 대한 정보를 출력합니다.
+
+### **ThreadGroup 사용 예시**
+
+```java
+public class MyRunnable implements Runnable {
+    @Override
+    public void run() {
+        System.out.println(Thread.currentThread().getName() + " is running");
+    }
+
+    public static void main(String[] args) {
+        ThreadGroup threadGroup = new ThreadGroup("MyThreadGroup");
+
+        Thread t1 = new Thread(threadGroup, new MyRunnable(), "Thread 1");
+        Thread t2 = new Thread(threadGroup, new MyRunnable(), "Thread 2");
+
+        t1.start();
+        t2.start();
+
+        System.out.println("Thread Group Name: " + threadGroup.getName());
+    }
+}
+
+```
+
+이 예제에서는 "MyThreadGroup"이라는 이름의 `ThreadGroup`을 생성하고, 이 그룹에 두 개의 스레드를 할당합니다. 이 그룹에 속한 스레드들은 **`run()`** 메소드에서 간단한 메시지를 출력합니다.
+
