@@ -14,6 +14,7 @@ public class ThreadPoolThreadLocalExam {
         executor.submit(() -> {
             threadLocal.set("Job 1");
             System.out.println(Thread.currentThread().getName() + " : " + threadLocal.get());
+            threadLocal.remove(); // 스레드 풀의 경우 새롭게 스레드를 새롭게 생성하지 않기때문에 threadLocal의 값을 초기화 시켜 줘야 한다.
         });
         //잠시 대기
         try {
@@ -27,7 +28,7 @@ public class ThreadPoolThreadLocalExam {
             executor.submit(() -> {
                 System.out.println(Thread.currentThread().getName() + " : " + threadLocal.get());
                 // 스레드 풀은 스레드를 새롭게 생성하는게 아니기때문에 초기값이 아닌 이전 스레드가 설정한 값을 가져올 수도 있다.
-                /*
+                /* 초기화전
                 *   pool-1-thread-1 : Job 1
                 *
                     pool-1-thread-1 : Job 1 이전 스레드에서 설정한 값
@@ -35,6 +36,16 @@ public class ThreadPoolThreadLocalExam {
                     pool-1-thread-1 : Job 1 이전 스레드에서 설정한 값
                     pool-1-thread-1 : Job 1 이전 스레드에서 설정한 값
                     pool-1-thread-2 : null
+                * */
+
+                /* 초기화 후
+                * pool-1-thread-1 : Job 1
+                *
+                pool-1-thread-2 : null
+                pool-1-thread-2 : null
+                pool-1-thread-1 : null
+                pool-1-thread-2 : null
+                pool-1-thread-1 : null
                 * */
             });
         }
