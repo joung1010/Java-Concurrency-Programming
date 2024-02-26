@@ -1541,3 +1541,180 @@ public class MyRunnable implements Runnable {
 
 이 예제에서는 "MyThreadGroup"이라는 이름의 `ThreadGroup`을 생성하고, 이 그룹에 두 개의 스레드를 할당합니다. 이 그룹에 속한 스레드들은 **`run()`** 메소드에서 간단한 메시지를 출력합니다.
 
+
+## ThreadLocal
+
+`ThreadLocal`은 자바에서 스레드별로 변수를 분리하여 저장할 수 있게 해주는 유틸리티이다. 즉 자바에서는 **오직 자시만이 접근해서 읽고 쓸수 있는 로컬 변수 저장소**를 제공하는데 이를 `ThreadLocal` 이라고 한다. 각 스레드가 독립적인 변수의 인스턴스를 갖도록 하여, 스레드 간의 데이터 충돌을 방지하고 이는 멀티 스레드 환경에서 자주 사용되며, 특히 서버 사이드 애플리케이션 개발에서 유용하다.  
+  
+각 스레드는 고유한 ThreadLocal 객체를 속성으로 가지고 있으며 ThreadLocal은 스레드 간 격리되어 있다. 스레드는 ThradLocal 에 저장된 값을 특정한 위치나 시점에 상관없이 어디에서나 전역변수처럼 사용할 수 있다. 변수 값을 전달하지 않아도 된다. **모든 스레드가 공통적으로 처리해야하는 기능**이나 객체를 제어해야 하는 사황에서 스레드마다 다른 값을 적용해야 하는 경우 사용한다.(인증 주체 보관, 트랜잭션전파,로그 추적기등)
+  
+클라이언트에서 요청1,요청2,요청3을 서버로 요청했을대 WAS는 해당 요청마다 스레드를 생성하게된다. 이 생성된 스레드들은 ThreadLocal이라는 속성을 가지고 있고 이 속성은 개별적으로 ThreadLocalMap이라는 Map 객체를 만들어서 스레드 마다 할당한다.
+
+### **ThreadLocal의 사용 방법**
+
+1. **ThreadLocal 인스턴스 생성**: `ThreadLocal`은 보통 **`private static`** 필드로 선언된다.
+
+    ```java
+    private static final ThreadLocal<MyObject> threadLocalInstance = new ThreadLocal<>();
+    
+    ```
+
+2. **값 설정하기**: 각 스레드에서 **`ThreadLocal`** 인스턴스의 **`set()`** 메서드를 사용하여 값을 설정할 수 있습니다.
+
+    ```java
+    threadLocalInstance.set(new MyObject());
+    
+    ```
+
+3. **값 가져오기**: 스레드 내에서 **`get()`** 메서드를 사용하여 저장된 값을 검색합니다.
+
+    ```java
+    MyObject obj = threadLocalInstance.get();
+    
+    ```
+
+4. **값 제거하기**: 스레드가 더 이상 사용하지 않는 경우, **`remove()`** 메서드를 호출하여 리소스를 해제합니다.
+
+    ```java
+    threadLocalInstance.remove();
+    
+    ```
+5. **withInitial(Supplier <? extends S> supplier)**: 스레드 로컬을 생성하면서 특정 값으로 초기화한다.   
+    ```java
+    ThreadLocal<String> threadLocal = ThreadLocal.withInitial(()->"defaultName");
+    ```
+    
+### Thread & ThreadLocal
+
+### **Thread**
+
+   - `Thread`는 자바에서 독립적인 실행 흐름을 나타내는 기본 단위입니다.
+   - 멀티스레딩 환경에서 여러 스레드가 동시에 실행되면서 각각의 작업을 병렬적으로 처리할 수 있습니다.
+   - 각 스레드는 공유 자원에 접근할 수 있으며, 이로 인해 데이터의 일관성과 동기화 문제가 발생할 수 있습니다.
+   - 스레드 생성시 threadLocals 의 기본값은 null이며 threadLocal에 값을 지정할 때 ThreadLocalMap 이 생성되고 threadLocals 과 연결된다.
+   - 스레드가 전역적으로 값을 참조할 수 있는 원리는 스레드 ThreadLocal의 TreadLocalMap 에 접근해서 여기에 저장된 값을 바로 꺼내어 쓸수 있기 때문이다.
+
+### **ThreadLocal**
+
+- `ThreadLocal`은 각 스레드에게 고유한 데이터 저장소를 제공합니다.
+- 스레드 내부에서만 접근 가능한 데이터를 저장하는데 사용되며, 다른 스레드와의 데이터 격리를 보장합니다.
+- `ThreadLocal`을 사용하면 각 스레드는 동일한 변수에 대해 서로 다른 값을 유지할 수 있습니다. 이는 멀티스레딩 환경에서 데이터 충돌이나 동기화 문제를 방지하는 데 도움이 됩니다.
+
+### **ThreadLocalMap**
+
+  - `ThreadLocalMap`은 **`ThreadLocal`** 객체와 연관된 값을 저장하는 내부 클래스입니다. 이는 해시맵과 유사하지만, 키로 **`ThreadLocal`** 객체를 사용합니다.
+  - `ThreadLocal`의 각 인스턴스가 스레드별로 다른 값을 가질 수 있도록, 해당 스레드에 대한 고유한 값들을 저장합니다.
+  - ThreadLocalMap 은 항상 새롭게 생성되어 스레드 스택에 저장되기때문에 근본적으로 스레드간 데이터 공유가 될 수 없고 따라서 동시성 문제가 발생하지 않는다.
+
+   ### **Thread의 threadLocals 필드**
+
+  1. **정의**: **`Thread`** 클래스 내에는 `threadLocals`라는 필드가 있습니다. 이 필드는 해당 스레드에 속한 **`ThreadLocal`** 변수들의 값을 저장하는 `ThreadLocalMap`의 인스턴스를 참조합니다.
+  2. **작동 방식**:
+      - `ThreadLocal`의 **`set`** 또는 **`get`** 메서드가 호출될 때, 현재 스레드의 **`threadLocals`** 필드에 접근합니다.
+      - 해당 `ThreadLocalMap`에 **`ThreadLocal`** 객체를 키로 사용하여 값을 저장하거나 조회합니다.
+      - 각 스레드는 자신만의 **`threadLocals`** 필드를 가지므로, 다른 스레드의 **`ThreadLocal`** 값에 영향을 받지 않습니다.
+
+### **상호작용 흐름**
+
+  1. **값 설정**: 스레드에서 `ThreadLocal`의 **`set`** 메서드를 호출하면, 현재 스레드의 **`threadLocals`** 필드에 접근하여 `ThreadLocalMap`에 값을 저장합니다.(스레드 생성 시 threadLocals 기본값은 null)
+  2. **값 조회**: **`get`** 메서드를 호출할 때, 같은 방식으로 현재 스레드의 **`threadLocals`** 필드에 저장된 `ThreadLocalMap`에서 해당 **`ThreadLocal`** 객체에 연관된 값을 조회합니다.
+  3. **값 제거**: **`remove`** 메서드를 호출하면, `ThreadLocalMap`에서 해당 **`ThreadLocal`** 객체와 연관된 값을 제거합니다.
+
+
+### **ThreadLocal의 주의점**
+
+- **메모리 누수**: `ThreadLocal`을 사용할 때는 메모리 누수에 주의해야 합니다. 각 스레드가 끝나더라도 `ThreadLocal`에 저장된 객체가 GC(가비지 컬렉션)에 의해 회수되지 않을 수 있기 때문에, 필요 없어진 **`ThreadLocal`** 변수는 **`remove()`** 메서드를 호출하여 명시적으로 제거해야 합니다.
+- **스레드 풀 사용 시 주의**: 스레드 풀을 사용하는 환경에서 `ThreadLocal`을 사용할 때는 각 작업이 끝날 때마다 **`ThreadLocal`** 값을 제거해야 합니다. 그렇지 않으면 다음에 그 스레드가 재사용될 때 이전 작업의 데이터가 남아있을 수 있습니다.
+  
+### ThreadLocal 작동원리
+- ThreadLocal은 Thread와 ThreadLocalMap을 연결하여 스레드 전용 저장소를 구현하고 있는데 이것이 가능한 이유는 바로 Thread.currentThread()를 참조할 수 있기때문이다.
+- Thread.currentThread()는 현재 실행중인 스레드의 객체를 참조하는 것으로 **CPU 는 오직 하나의 스레드만 할당받아 처리하기 때문에** ThreadLocal 에서 Thread.currentThread()를 참조하면 **지금 실행중인 스레드의 로컬 변수를 저장하거나 참조할 수 있게된다.**
+- ThreadLocal 에서 현재 스레드를 참조할 수 있는 방법 없다면 값을 저장하거나 요청하는 스레드를 식별할 수 없기 때문에 **Thread.currentThread() 는 ThreadLocal의 중요한 데이터 식별 기준**이 된다.
+
+   ### **사용 예제**
+
+  ```java
+  public class MyRunnable implements Runnable {
+      private static final ThreadLocal<Integer> threadId = new ThreadLocal<Integer>() {
+          @Override
+          protected Integer initialValue() {
+              return nextId.getAndIncrement();
+          }
+      };
+    
+      private static final AtomicInteger nextId = new AtomicInteger(0);
+    
+      public void run() {
+          System.out.println("스레드 ID: " + threadId.get());
+      }
+  }
+    
+  ```
+
+   이 예제에서 **`MyRunnable`** 클래스는 스레드마다 고유한 ID를 생성하고 출력합니다. `ThreadLocal`의 **`initialValue()`** 메서드를 오버라이드하여 초기 값을 설정할 수 있다.
+
+### ThreadLocal 작동원리
+
+   `ThreadLocal`의 작동 원리를 이해하기 위해서는 먼저, 자바 멀티스레딩 환경에서 스레드가 어떻게 작동하는지, 그리고 `ThreadLocal`이 이 환경에서 어떻게 스레드별로 데이터를 격리하는지를 살펴봐야 한다.
+
+### **기본 개념**
+
+  1. **스레드**: 자바에서 스레드는 프로세스 내에서 실행되는 독립적인 실행 흐름입니다. 각 스레드는 자신만의 스택을 갖지만, 힙과 메소드 영역 같은 메모리 영역은 다른 스레드와 공유합니다.
+  2. **스레드별 데이터 격리**: 멀티스레딩 환경에서 데이터의 일관성과 안전성을 유지하기 위해, 각 스레드가 서로 독립적인 데이터를 유지하거나 접근할 필요가 있습니다. 이를 위해 **`ThreadLocal`**을 사용합니다.
+
+### 예제 동작 과정
+  1. **ThreadLocal 인스턴스**: **`ThreadLocal`** 객체는 스레드별로 고유한 값을 유지합니다. 각 스레드는 이 **`ThreadLocal`** 객체를 통해 자신만의 값을 저장하고 조회할 수 있습니다.
+  2. **ThreadLocalMap**: 내부적으로, **`ThreadLocal`**은 **`ThreadLocalMap`**이라는 특수한 맵을 사용합니다. 이 맵은 키로 **`ThreadLocal`** 객체를 사용하고, 값으로 스레드별 데이터를 저장합니다. 중요한 점은 이 맵이 각 스레드에 대해 독립적으로 존재한다는 것입니다.
+  3. **Thread 객체와의 관계**: 자바의 **`Thread`** 클래스에는 **`ThreadLocal.ThreadLocalMap`** 타입의 **`threadLocals`**라는 필드가 있습니다. **`ThreadLocal`**이 **`get()`** 또는 **`set()`** 메서드를 호출할 때, 현재 스레드의 **`threadLocals`** 맵에 접근하여 해당 스레드의 **`ThreadLocal`** 변수에 값을 저장하거나 조회합니다.
+  4. **값의 저장과 조회**:
+      - **`set()`** 메서드를 호출하면, 현재 스레드의 **`ThreadLocalMap`**에 값이 저장됩니다.
+      - **`get()`** 메서드를 호출하면, 현재 스레드의 **`ThreadLocalMap`**에서 해당 **`ThreadLocal`** 변수의 값을 조회합니다.
+      - **`remove()`** 메서드를 사용하여 특정 **`ThreadLocal`** 인스턴스에 저장된 값을 제거할 수 있습니다.
+  5. **스레드별 격리**: 이 메커니즘 덕분에, 각 스레드는 **`ThreadLocal`** 변수에 대해 독립적인 값을 유지할 수 있으며, 다른 스레드의 **`ThreadLocal`** 변수 값에 영향을 받지 않습니다.
+
+  ```java
+  public class MyRunnable implements Runnable {
+      private ThreadLocal<Integer> threadLocal = new ThreadLocal<>();
+    
+      @Override
+      public void run() {
+          threadLocal.set((int) (Math.random() * 100D));
+          try {
+              Thread.sleep(2000);
+          } catch (InterruptedException e) {
+              e.printStackTrace();
+          }
+          System.out.println(threadLocal.get());
+      }
+  }
+  ```
+
+   ### **InheritableThreadLocal**
+
+  - InheritableThreadLocal은 ThreadLocal의 확장 버전으로서 부모 스레드로부터 자식 스레드로 값을 전달하고 싶을 경우 InheritableThreadLocal을 사용할 수 있다
+  - **값의 상속:**
+      - 부모 스레드가 InheritableThreadLocal 변수에 값을 설정하면, 해당 부모 스레드로부터 생성된 자식 스레드들은 부모의 값을 상속받게 된다
+  - **독립성**
+      - **자식 스레드가 상속받은 값을 변경하더라도 부모 스레드의 값에는 영향을 주지 않는다.**
+
+  ```java
+  public class MyRunnable implements Runnable {
+      private static final InheritableThreadLocal<Integer> inheritableThreadLocal = new InheritableThreadLocal<>();
+    
+      @Override
+      public void run() {
+          System.out.println("상속받은 값: " + inheritableThreadLocal.get());
+      }
+    
+      public static void main(String[] args) {
+          inheritableThreadLocal.set(100);
+    
+          Thread childThread = new Thread(new MyRunnable());
+          childThread.start();
+      }
+  }
+  ```
+   
+  
+
+
