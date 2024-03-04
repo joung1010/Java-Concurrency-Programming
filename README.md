@@ -1891,3 +1891,132 @@ public class Main {
     }
 }
 ```
+
+## Critical Section(임계영역, 공유 변수 영역)
+
+임계 영역(Critical Section)은 멀티스레딩 프로그램에서 **두 개 이상의 스레드가 동시에 접근하면 안 되는 코드 영역**을 말한다. 이 영역은 공유 자원(예: 변수, 파일)을 사용하는 코드를 포함하고 있으며, 여러 스레드에 의해 동시에 접근되면 데이터 불일치나 예상치 못한 결과를 초래할 수 있다.
+
+이 임계 영역은 entry section, critical section, exit section, remainder section 으로 구성 된다.
+
+- entry section(입장영역) : critical section 에 진입하기 위해 진입허가를 요청하는 영역입니다.
+- **critical section(임계영역)** : 하나의 스레드만 접근할 수 있는 영역이다
+- exit section(퇴장영역) : critical section 에서 빠져나올 때 신호를 알리는 영역이다
+- remainder section (나머지영역) : entry section, critical section, exit section 을 제외한 나머지 영역이다
+
+
+### Critical Section Problem
+한 스레드가 임계 영역을 실행하고 일을 때 다른 스레드가 같은 임계영역을 상용함으로서 발생한다.  
+이 문제의 해결책을 위해서 3가지 충족조건이 있다.
+* **Mutual Exclusion (상호 배제)**
+    * 어떤 스레드가 임계 영역을 실행중이면 다른 스레드는 동일한 임계영역을 실행할 수 없다.
+* **Progress(진행)**
+    * 임계 구역에서 실행 중인 스레드가 없고 임계 구역에 진입하련느 스레드가 있을때 어떤 스레드가 들어갈 것인지 적절히 선택해 줘야 하며 이러한 결정은 무한정 미뤄져선 안된다.
+* **Bounded Waiting(한정 대기)**
+    * 다른 스레드가 임계 영역에 들어가도록 요청한 후 해당 요청이 수락되기 전에 기존 스레드가 임계영역에서 실행할 수 있는 횟수에 제한이 있어야한다.
+    * Starvation(기아상태) 이 발생하지 않도록 한다.
+
+### 동기화 도구
+뮤텍스, 세마포어, 모니터, CAS(Compare and Swap) 와 같은 동기화 도구를 통해 임계영역에서 문제가 발생하지 않도록 할 수 있으며 자바에서는 synchronized 키워드를 포함한 여러 동기화 도구들을 제공하고 있다.
+
+### **자바에서의 임계 영역 처리 방법**
+
+1. **Synchronized 메서드**
+    - 메서드 전체를 임계 영역으로 지정합니다.
+    - **`synchronized`** 키워드를 메서드 선언에 추가하여 사용합니다.
+    - 이 메서드는 한 번에 하나의 스레드만이 접근할 수 있습니다.
+    - 예:
+
+        ```java
+        
+        public synchronized void increment() {
+            // 임계 영역
+        }
+        
+        ```
+
+2. **Synchronized 블록**
+    - 특정 객체에 대한 동기화된 블록을 생성합니다.
+    - 임계 영역 내에서 필요한 최소한의 코드만을 포함시킵니다.
+    - 예:
+
+        ```java
+        
+        public void increment() {
+            synchronized(this) {
+                // 임계 영역
+            }
+        }
+        
+        ```
+
+3. **Lock 인터페이스**
+    - **`java.util.concurrent.locks`** 패키지의 **`Lock`** 인터페이스를 사용합니다.
+    - 명시적으로 락을 획득하고 해제합니다.
+    - **`ReentrantLock`** 클래스가 일반적으로 사용됩니다.
+    - 예:
+
+        ```java
+        
+        Lock lock = new ReentrantLock();
+        
+        public void increment() {
+            lock.lock();
+            try {
+                // 임계 영역
+            } finally {
+                lock.unlock();
+            }
+        }
+        
+        ```
+
+4. **Atomic 변수**
+    - **`java.util.concurrent.atomic`** 패키지에 있는 클래스들을 사용합니다.
+    - 원자적 연산을 통해 락 없이도 스레드 안전을 보장할 수 있습니다.
+    - 예: **`AtomicInteger`**, **`AtomicLong`** 등
+
+   ### 예시
+
+    ```java
+    import java.util.concurrent.locks.Lock;
+    import java.util.concurrent.locks.ReentrantLock;
+    
+    class CriticalSectionExample {
+        private final Lock lock = new ReentrantLock();
+        private int sharedResource = 0;
+    
+        public void criticalSection() {
+            // 진입 구역 (Entry Section)
+            lock.lock(); // 임계 영역 진입 전 락을 획득
+    
+            try {
+                // 임계 구역 (Critical Section)
+                sharedResource++; // 공유 자원에 대한 연산 수행
+    
+                // 퇴장 구역 (Exit Section)
+                // 이 경우 특별한 퇴장 작업은 없음
+    
+            } finally {
+                // 락 해제
+                lock.unlock();
+            }
+    
+            // 나머지 구역 (Remainder Section)
+            // 임계 영역과 무관한 나머지 작업 수행
+            nonCriticalSection();
+        }
+    
+        public void nonCriticalSection() {
+            // 임계 영역 외의 작업 수행
+        }
+    }
+    ```
+
+    - **진입 구역**: **`lock.lock()`** 호출로 시작합니다. 이 부분에서 현재 스레드는 임계 구역에 진입하기 위해 락을 획득하려고 시도합니다.
+    - **임계 구역**: `sharedResource++`는 실제 공유 자원을 수정하는 임계 구역입니다. 이 부분은 한 번에 하나의 스레드만 접근할 수 있어야 합니다.
+    - **퇴장 구역**: **`finally`** 블록 내부에서 `lock.unlock()`을 호출하여 임계 구역을 빠져나옵니다. 이는 다른 스레드가 이제 임계 구역에 진입할 수 있음을 의미합니다.
+    - **나머지 구역**: **`nonCriticalSection()`** 메서드는 임계 구역과 무관한 다른 작업을 수행하는 부분으로, 락과 관련이 없습니다.
+
+### Race Condition(경쟁상태, 경쟁조건, 경합 상태)
+여러 스레드가 동시에 **공유 자원에 접근하고 조작할때 스레드간 접근하는 순서나 시점에 따라 실행 결과가 달라질** 수 있는데 이것을 경쟁상태 라고 한다. 경쟁 상태는 임계영역에서 발생하는 문제들이 해결 되지 않는 상태에서 여러 스레드가 동시에 임계 영역에 접근해서 공유 데이터를 조작함으로써 발생하는 상태라 할 수 있다.
+  
