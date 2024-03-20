@@ -2,7 +2,7 @@ package io.concurrency.SynchronizationTechniques06.exam03;
 
 public class MutualExam {
     private int count = 0;
-    public void increase() {
+    public synchronized void increase() {
         count++;
         System.out.println(Thread.currentThread().getName() + " : "+ count);
     }
