@@ -1,4 +1,4 @@
-package io.concurrency.synchronizedKeyword07;
+package io.concurrency.synchronizedKeyword07.method;
 
 public class InstanceMethodSynchronizedExam2 {
     private int count = 0;
