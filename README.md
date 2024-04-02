@@ -2740,7 +2740,7 @@ public class Example {
     public static void main(String[] args) {
         Example ex = new Example();
         ex.instanceMethod(); // 이 메소드는 객체 ex의 락을 사용합니다.
-
+    
         Example.staticMethod(); // 이 메소드는 Example 클래스의 Class 객체의 락을 사용합니다
     }
 }
@@ -2749,3 +2749,122 @@ public class Example {
 
 - 한 스레드가 `instanceMethod()`를 실행하고 있는 동안, 다른 스레드는 여전히 `staticMethod()`를 실행할 수 있습니다. 이는 두 메소드가 서로 다른 락을 사용하기 때문이다.
 - 이러한 독립성은 동시성을 증가시킬 수 있지만, 동기화할 자원이 인스턴스와 클래스 레벨에서 서로 영향을 미칠 수 있다면 주의가 필요하다. 예를 들어, 인스턴스 메소드와 정적 메소드가 동일한 외부 자원에 접근한다면, 별도의 동기화 메커니즘이 필요할 수 있다.
+
+# 블록 동기화
+
+## synchronized block , static synchronized block
+
+### synchronized block
+
+**인스턴스 단위로 모니터가 동작**하며 synchronized 가 적용된 곳은 하나의 락을 공유한다. 모든 인스턴스가 모니터를 가지기 때문에 모니터를 여러 인스턴스로 구분해서 동기화를 구성할 수 있다. 클래스의 인스턴스가 여러개일 경우 인스턴스별로 모니터 객체를 가지며 스레드는 모니터 별로 락을 획득해서 synchronized 영역을 진입하고 빠져 나올 때 락을 해제 할 수 있다.
+
+- **특정 객체의 락 사용**: **`synchronized`** 블록은 괄호 안에 지정된 객체의 락을 사용합니다.
+- **유연성**: 메소드 전체를 동기화하는 것이 아니라 필요한 부분만 동기화할 수 있어 유연합니다.
+- **예시**:
+
+    ```java
+    
+    public class Example {
+        private Object lock = new Object();
+    
+        public void method() {
+            synchronized (lock) {
+                // 동기화된 블록
+            }
+        }
+          public void method2() {
+            synchronized (this) {
+                // 동기화된 블록
+            }
+        }
+    }
+    
+    ```
+
+
+### static synchronized block
+
+클래스 단위로 모니터가 동작하며 synchronized 가 적용된 곳은 하나의 락을 공유한다. 모든 클래스가 모니터를 가지기 때문에 모니터를 여러 클래스로 구분해서 동기화를 구성할 수 있다. 클래스 모니터가 여러개일 경우 스레드는 모니터 별로 락을 획득해서 synchronized 영역을 진입하고 빠져 나올 때 락을 해제 할 수 있다.
+
+- **클래스의 Class 객체의 락 사용**: **`synchronized`** 블록은 **`ClassName.class`**를 이용하여 클래스 레벨의 락을 사용합니다.
+- **클래스 레벨 동기화**: 클래스의 모든 인스턴스에 걸쳐 동기화를 제공합니다.
+- **예시**:
+
+    ```java
+    public class Example {
+        public static void staticMethod() {
+            synchronized (Example.class) {
+                // 동기화된 정적 블록
+            }
+        }
+  
+          public static void staticMethod2() {
+            synchronized (YourClass.class) {
+                // 동기화된 정적 블록
+            }
+        }
+    }
+    
+    ```
+
+
+### **주요 차이점**
+
+- **락의 범위**: **`Synchronized block`**은 지정된 객체의 락을 사용하는 반면, **`Static synchronized block`**은 클래스의 Class 객체의 락을 사용한다.
+- **적용 범위**: 인스턴스 블록은 해당 객체의 인스턴스에만 영향을 미치는 반면, 정적 블록은 클래스 레벨에서 동기화를 수행한다.
+
+### 인스턴스 블록 동기화 (synchronized block) + 정적 블록 동기화 (static synchronized block)
+```java
+public class Myclass {
+    private Object lock = new Object();
+    
+    public synchronized void synMethod1() { //this
+        // 동기화 영역
+    }
+
+    public static synchronized void synMethod2() {//Myclass
+        // 동기화 영역
+    }
+
+    public void synMethod3() { //lock
+        synchronized (lock) {
+            // 동기화 영역    
+        }
+        
+    }
+
+    public void synMethod4() {// Myclass
+        synchronized (this) {
+            // 동기화 영역    
+        }
+
+    }
+
+
+    public void synMethod5() {
+        synchronized (Myclass.class) {// Myclass
+            // 동기화 영역    
+        }
+
+    }
+
+    public void synMethod() {
+        synchronized (DifferentClass.class) {// DifferentClass
+            // 동기화 영역    
+        }
+
+    }
+}  
+
+```
+총 4개의 모니터가 존재
+- Object lock
+- this
+- Myclass
+- DifferentClass
+  
+
+
+- **독립적인 락 메커니즘**: 인스턴스 블록 동기화와 정적 블록 동기화는 서로 다른 락을 사용합니다. 인스턴스 메소드는 특정 객체의 락을, 정적 메소드는 클래스의 Class 객체 락을 사용한다.
+- **병렬 실행 가능성**: 한 스레드가 인스턴스 동기화 블록에 있어도, 다른 스레드는 정적 동기화 블록을 동시에 실행할 수 있다. 이는 두 동기화 블록이 서로 다른 락을 사용하기 때문이다.
+- **자원 공유 주의**: 두 동기화 블록이 동일한 자원을 다루는 경우, 개별 락에도 불구하고 여전히 동기화 문제가 발생할 수 있다. 이런 경우에는 추가적인 동기화 전략이 필요할 수 있다.
