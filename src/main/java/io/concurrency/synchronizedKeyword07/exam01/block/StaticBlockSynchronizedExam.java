@@ -1,4 +1,4 @@
-package io.concurrency.synchronizedKeyword07.block;
+package io.concurrency.synchronizedKeyword07.exam01.block;
 
 
 class MethodblockClass {

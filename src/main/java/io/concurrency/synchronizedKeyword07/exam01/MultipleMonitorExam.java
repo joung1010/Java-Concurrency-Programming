@@ -1,4 +1,4 @@
-package io.concurrency.synchronizedKeyword07;
+package io.concurrency.synchronizedKeyword07.exam01;
 class BankAccount {
     private double balance;
     private final Object lock = new Object();
