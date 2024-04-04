@@ -3221,3 +3221,116 @@ new Thread(() -> {
 - **동기화(Synchronization)**: **`synchronized`** 키워드, `ReentrantLock`과 같은 동기화 메커니즘을 사용하여 한 시점에 하나의 스레드만이 공유 자원에 접근하도록 제한 한다.
 - **원자적 연산(Atomic Operations)**: **`java.util.concurrent.atomic`** 패키지의 클래스들은 원자적 연산을 제공하여 공유 자원에 대한 안전한 접근을 보장 한다.
 - **락(Lock)과 조건 변수(Condition Variables)**: 더 복잡한 동기화 요구 사항에 대해 락과 조건 변수를 사용하여 세밀한 제어를 수행할 수 있다.
+
+
+## **Happens-Before 보장**
+
+Happens-Before 보장은 특정 메모리 작업(읽기, 쓰기)의 순서를 정의하는 규칙입니다. 이 규칙은 멀티스레드 프로그램에서 하나의 스레드에서 수행된 작업이 다른 스레드에 어떻게 보이는지를 정의 한다.  
+  
+즉, 한 스레드의 작업 결과가 다른 스레드에게 언제 그리고 어떻게 가시적(Visible)이 되는지를 규정하는 것이다
+
+### **Happens-Before 규칙의 핵심**
+
+Happens-Before 규칙의 핵심은 메모리 **가시성(Memory Visibility)과 작업 순서(Ordering)** 입니다. 이 규칙에 따르면, 특정 작업 A가 다른 작업 B보다 먼저 일어난다면("happens-before"), 작업 A의 결과는 작업 B에서 관찰될 수 있어야 한다.
+
+### 예시
+
+JVM 은 프로그램의 성능을 향상시키기 위해 명령어를 재 정렬하지만 volatile 변수를 사용하면 해당 변수를 읽거나 쓰는 작업은 특별한 규칙에 따라 재정렬되지 않도록 보장한다.
+
+즉 volatile 변수 전과 후에 실행되는 명령들은 JVM 컴파일러에 의해 재 정렬 될 수 있으나 volatile 변수에 대한 명령 이전/이후에 존재한다는 규칙은 반드시 지켜진다.
+
+> **JVM 컴파일에 의한 재정렬 이란?**
+> 자바 가상 머신(JVM)에서 수행되는 코드 최적화 과정 중 하나를 가리킵니다. 이 과정에서 JVM의 Just-In-Time(JIT) 컴파일러는 프로그램의 성능을 향상시키기 위해 코드의 실행 순서를 변경(재정렬)할 수 있습니다. 이러한 최적화는 프로그램의 동작에 영향을 미치지 않는 범위 내에서 수행됩니다.
+>
+- **쓰기-읽기 순서 보장**: **`volatile`** 변수에 값을 쓰는 작업은 이후에 발생하는 해당 변수에 대한 모든 읽기 작업에 대해 순서가 보장됩니다. 즉, 한 스레드에서 **`volatile`** 변수를 수정한 후, 다른 스레드가 이 변수를 읽으면 항상 가장 최근에 쓰여진 값을 읽게 됩니다.
+
+```java
+public class Exam {
+    private int x = 0;
+    private volatile boolean flag = false;
+    
+    public void write() {
+        x = 42;
+        flag = true;
+    }
+    
+    public void read() {
+        if (flag) {
+            System.out.println(x);
+        }
+    }
+}
+
+```
+#### 컴파일 후 재정령 안됨 flag가 volatile 변수로 선언되어서 명령어 재 정렬이 일어나지 않음
+
+
+```java
+public class Exam {
+    private int x = 0;
+    private boolean flag = false;
+    
+    public void write() {
+        x = 42;
+        flag = true;
+    }
+    
+    public void read() {
+        if (flag) {
+            System.out.println(x);
+        }
+    }
+}
+
+```
+### 컴파일 전
+
+```java
+public class Exam {
+    private int x = 0;
+    private boolean flag = false;
+    
+    public void write() {
+        flag = true;
+        x = 42;
+    }
+    
+    public void read() {
+        if (flag) {
+            System.out.println(x);
+        }
+    }
+}
+
+```
+### 컴파일 후 재 정렬됨 
+모든 변수가 일반변수 이기때문에 재 정렬이 일어날 수 있음
+
+`volatile` 키워드가 붙은 변수기준으로 그 위에 선언된 변수와 그아래 선언된 변수들은 재정령이 가능하다. 하지만 `volatile` 키워드를 기준으로 위에 선언된 변수와 아래 선언된 변수가 서로 번가라 가변수 재정령 되지는 않는다.  
+
+```java
+private String b = 2;
+private String c = 3;
+private volatile String a = 1;
+
+private String d = 4;
+private String e = 4;
+
+```
+a를 기준으로 b,c는 재정렬 될수있고 그 밑에있는 d,e도 재정령 될수 있지만 b가 d에 있는 위치로 가거나 e가 c에 위치로 정렬되는 현상은 발생하지 않는다는 말이다.  
+
+### **작동 원리**
+
+- **메모리 배리어**: **`volatile`** 변수에 대한 쓰기 작업이 일어날 때, Java Memory Model은 쓰기 전에 발생한 모든 메모리 작업이 쓰기 작업 이전에 완료되었음을 보장하는 '메모리 배리어'를 삽입합니다. 이로 인해 쓰기 작업 이전의 모든 변경사항이 메인 메모리에 반영됩니다.
+- **가시성 보장**: **`volatile`** 변수에 대한 읽기 작업은 메인 메모리에서 최신 값을 읽어오므로, 다른 스레드에서 수행한 최근의 쓰기 작업의 결과가 항상 보장됩니다.
+
+> **메모리 배리어란?**
+`메모리 배리어(Memory Barrier)`, 또는 `메모리 펜스(Memory Fence)`는 멀티스레딩 환경에서 스레드 간의 메모리 가시성과 순서를 보장하기 위해 사용되는 낮은 수준의 프로그래밍 구조입니다. 메모리 배리어는 CPU나 컴파일러가 명령어의 실행 순서를 재배열하는 것을 제한하여, 특정 지점에서 메모리 작업의 완료를 보장합니다.
+>
+>
+> **Java에서의 메모리 배리어**
+>
+> 자바에서는 **`volatile`** 키워드와 **`synchronized`** 블록을 통해 메모리 배리어의 역할이 내부적으로 처리됩니다.
+>
+> - **volatile 변수**: **`volatile`** 변수에 대한 쓰기 작업은 쓰기 배리어처럼 작동하여, 해당 작업 이전에 발생한 모든 메모리 작업이 쓰기 전에 완료되도록 보장합니다. 마찬가지로, **`volatile`** 변수의 읽기 작업은 읽기 배리어 역할을 하여, 해당 작업 이후의 모든 메모리 작업이 읽기 후에 발생하도록 보장합니다.
+> - **synchronized 블록**: **`synchronized`** 블록의 시작과 끝에는 전체 배리어가 존재하여, 블록 내의 모든 메모리 작업이 올바르게 순서가 지켜지고 완료되도록 합니다.
