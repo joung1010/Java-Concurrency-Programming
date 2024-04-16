@@ -3334,3 +3334,219 @@ a를 기준으로 b,c는 재정렬 될수있고 그 밑에있는 d,e도 재정�
 >
 > - **volatile 변수**: **`volatile`** 변수에 대한 쓰기 작업은 쓰기 배리어처럼 작동하여, 해당 작업 이전에 발생한 모든 메모리 작업이 쓰기 전에 완료되도록 보장합니다. 마찬가지로, **`volatile`** 변수의 읽기 작업은 읽기 배리어 역할을 하여, 해당 작업 이후의 모든 메모리 작업이 읽기 후에 발생하도록 보장합니다.
 > - **synchronized 블록**: **`synchronized`** 블록의 시작과 끝에는 전체 배리어가 존재하여, 블록 내의 모든 메모리 작업이 올바르게 순서가 지켜지고 완료되도록 합니다.
+
+## 데드락  
+
+데드락(Deadlock)은 두 개 이상의 **스레드가 서로의 작업 완료를 무한히 기다리는 상태**를 말합니다. 이 상태에서는 해당 스레드들이 영원히 진행되지 못하고, 락(lock)을 획득하거나 자원을 사용하는 것이 영원히 불가능해 진다.  
+  
+즉 교착상태에서는 아무런 진전도 이루어지지 않아 작업이 진행되지 않는 문제가 발생한다. 이 DeadLock 은 **동일한 환경과 코드에서 발생할 수도 있고 발생하지 않을 수도 있다.**  
+  
+여러 스레드가 동일한 자원에 접근하게 될때 이 데이터가 불일치하는 동시성문제가 발생한다. 이 문제를 해결하기위해서 적절한 동기화 기법을 사용해서 동시성 문제를 해결하는 방법을 앞에서 배웠다.  
+  
+이때 이 동기화기법에 있어서 한 스레드가 공유자원에 접근하게 되면 다른 스레드들은 대기하게 된다. 이때 이 대기하는 상태에서 **자원을 점유하고 있는 스레드와 대기하고 있는 스레드 사이에서 서로의 자원을 주지 못하는 경우가 발생**할 수 있다.  
+  
+즉 동시성 문제를 해결하기위해 동기화기법을 사용하였는데 거기서 문제가 다시발생하게 되는 형태가 데드락이라고 할 수 있다.
+
+### **데드락 발생의 네 가지 조건**
+
+데드락이 발생하기 위해서는 다음 네 가지 조건이 동시에 충족되어야 한다.
+
+1. **상호 배제(Mutual Exclusion)**: 한 번에 하나의 스레드만이 자원을 사용할 수 있습니다.
+2. **점유와 대기(Hold and Wait)**: 스레드가 최소한 하나의 자원을 점유한 상태로, 다른 스레드가 사용 중인 자원을 추가로 요구하며 대기합니다.
+3. **비선점(No Preemption)**: 다른 스레드가 이미 점유하고 있는 자원은 강제로 뺏을 수 없습니다.
+4. **순환 대기(Circular Wait)**: 각 스레드가 순환적으로 다음 스레드가 요구하는 자원을 점유하고 있으며, 이로 인해 무한 대기 상태가 발생합니다.
+
+### **데드락의 예시**
+
+가장 간단한 예시는 두 스레드가 서로 다른 두 자원을 점유하고, 동시에 상대방의 자원을 요구하는 상황입니다.
+
+```java
+class ResourceA {
+    synchronized void methodA(ResourceB b) {
+        // ResourceA의 일부 작업 수행
+        b.methodB();
+    }
+}
+
+class ResourceB {
+    synchronized void methodB() {
+        // ResourceB의 일부 작업 수행
+    }
+}
+
+// 스레드 1
+new Thread(() -> {
+    resourceA.methodA(resourceB);
+}).start();
+
+// 스레드 2
+new Thread(() -> {
+    resourceB.methodB();
+}).start();
+
+```
+
+여기서, 스레드 1은 `ResourceA`의 락을 획득하고 `ResourceB`의 락을 기다리고, 스레드 2는 `ResourceB`의 락을 획득하고 `ResourceA`의 락을 기다리는 상황이 발생할 수 있다.
+
+### **데드락 해결 및 예방 방법**
+
+데드락 방지는 데드락 발생 조건인 네 가지 중에서 최소한 1가지를 방지함으로서 네 가지를 모두 만족하지 않게 하는 기법이다. 일단 데드락이 발생하면 어플리케이션 단에서 데드락을 해소하는 것은 어렵고 서버를 재 기동하거나 종료하는 것 밖에 현실적으로 다른 해결책은 없다.
+
+1.**한번에 하나 이상의 락을 사용하지 않는다**
+
+- 데드락은 스레드가 락을 중첩으로 제어하면서 발생하는 경우가 많기 때문에 가능한 한 스레드가 두 개 이상의 락을 제어하는 상황을 만들지 않도록 하는 것이 좋다
+
+    ```java
+    class Resource {
+        private final Object lock = new Object();
+    
+        public void doSomething() {
+            synchronized (lock) {
+                // 락을 사용한 작업
+            }
+        }
+    }
+    ```
+
+
+2.**락의 순서를 잘 조정한다**
+
+- 불가피하게 여러 개의 락을 사용해야 한다면 락의 점유 순서를 일정한 순서로 정해주도록 함으로써 데드락이 발생할 수 있는 조건 중 하나인 순환 대기를 방지하도록 한다
+
+    ```java
+    class OrderedLock {
+        private final Object lock1 = new Object();
+        private final Object lock2 = new Object();
+    
+        public void method1() {
+            synchronized (lock1) {
+                synchronized (lock2) {
+                    // 락 lock1, 그 다음 lock2를 순차적으로 사용
+                }
+            }
+        }
+    
+        public void method2() {
+            synchronized (lock1) {
+                synchronized (lock2) {
+                    // 동일한 순서로 락 사용
+                }
+            }
+        }
+    }
+    ```
+
+
+3.**락 타임아웃을 건다**
+
+- 락을 요청할 때 일정 시간 이내에 락을 얻지 못하면 다른 작업을 수행하도록 타임아웃을 설정한다.
+- 락 획득에 타임아웃 오류가 나면 오래 기다리지 않고 제어권이 다시 돌아오기 때문에 현재 소유한 락을 해제하고 잠시 기다리다가 데드락 상황이 지나가면 다시 정상으로 동작할 수 있다
+
+    ```java
+    import java.util.concurrent.locks.ReentrantLock;
+    import java.util.concurrent.TimeUnit;
+    
+    class TimeoutLock {
+        private final ReentrantLock lock = new ReentrantLock();
+    
+        public void tryLockMethod() {
+            try {
+                if (lock.tryLock(1000, TimeUnit.MILLISECONDS)) { // 1초 타임아웃
+                    try {
+                        // 임계 영역
+                    } finally {
+                        lock.unlock();
+                    }
+                } else {
+                    // 타임아웃 후의 작업
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+    ```
+
+
+4.**메서드는 오픈 호출 형태로 구현한다**
+
+- 락을 전혀 확보하지 않은 상태에서 메서드를 호출하는 것을 오픈 호출이라고 하며 락을 전체 메서드에 적용하지 않고 락이 필요한 임계영역만 보호하도록 한다
+- 여러 개의 락을 호출하더라도 동시에 락을 점유하는 것이 아닌 순차적으로 락을 획득하고 해제하는 방식으로 메서드를 호출하도록 한다
+
+    ```java
+    class OpenCall {
+        private final Object lock = new Object();
+    
+        public void openCallMethod() {
+            // 락을 획득하기 전에 필요한 작업
+            synchronized (lock) {
+                // 임계 영역
+            }
+            // 락을 해제한 후의 작업
+        }
+    }
+    ```
+
+
+5.**스레드 덤프를 활용한다**
+
+- 스레드 덤프에는 실행중인 스레드의 모든 스택 트레이스가 담겨져 있고 락과 관련된 정보도 포함되어 있기 때문에 이를 활용해서 어디에서, 어떤 스레드가 , 어느 시점에 , 왜 데드락이 발생했는지 원인을 추척 및 분석하고 해결방안을 모색할 수 있다.
+  
+## 그외 활동성 문제
+
+### **기아 상태 (Starvation)**
+
+기아 상태는 특정 스레드나 프로세스가 필요한 자원을 무기한으로 기다리게 되는 상황을 말합니다. 다른 스레드들이 우선적으로 자원을 점유하거나 실행되어 해당 스레드가 자원을 얻지 못하게 되면 기아상태가 발생한다.  
+  
+이는 일반적으로 자원에 대한 접근이 우선순위나 다른 스레드에 의해 지속적으로 차단될 때 발생합니다.
+
+- **원인**: 일부 스레드가 높은 우선순위를 가지거나, 자원을 과도하게 점유하고 있어 다른 스레드가 자원을 사용할 기회를 얻지 못하는 경우에 발생합니다.
+- **결과**: 낮은 우선순위의 스레드 또는 자원을 요청하는 스레드가 무한히 대기하는 상태가 됩니다.
+- **해결**: 우선순위를 기반으로 한 스케줄링이 아니라 공정성을 고려하여 모든 스레드가 공평하게 실행될 수 있도록 우선순위를 조정하는 등의 설계가 뒷받침 됨어야 한다.  
+
+### **라이브락 (Livelock)**
+
+라이브락은 스레드들이 실제로는 아무런 진전도 이루지 못하면서도 계속해서 실행 상태인 것처럼 보이는 상황을 말합니다. 라이브락은 데드락과 다르게 작업이 멈추지 않고 계속해서 진행되지만, 실질적인 작업이 진행되지 않거나 진행이 제대로 이루어지지 않는 상태를 의미한다.
+  
+스레드들은 서로를 피해 자원을 사용하려고 하지만, 결국 아무것도 수행하지 못하는 상태가 됩니다. 또는 서로의 자원을 기다리기 거나 서로가 양보하는 동작이 반복되면서 진행이 지연되는 상태가 발생한다.
+
+- **원인**: 라이브락은 보통 스레드들이 서로의 작업을 방해하지 않으려고 할 때 발생합니다. 예를 들어, 두 스레드가 서로의 작업을 방해하지 않기 위해 동시에 자원을 놓아주려고 하면, 끊임없이 이러한 상태가 반복될 수 있습니다.
+- **결과**: 스레드들이 계속해서 실행되고 있지만, 실제로는 어떠한 유용한 작업도 수행하지 못합니다.
+- ```java
+  public class LivelockExam{
+  
+  static class Worker{
+    private boolean isBusy;
+    public Worker(){
+    this.isBusy = true;
+  }
+  public void doWorkWith(Worker partner){
+    while(isBusy){
+        if(partner.isBusy){
+            Thread.sleep(1);
+            System.out.println("다른 스레드에게 양보!");
+        }else{
+            System.out.println("other person will continue working");
+            this.isBusy = flase;
+        }
+  
+    }
+  }
+  
+    
+  }
+  public static void main(String[] args){
+    Worker worker1 = new Worker();
+    Worker worker2 = new Worker();
+  
+    new Thread(() -> worker1.doWorkWith(worker2)).start();
+    new Thread(() -> worker2.doWorkWith(worker1)).start();
+  }
+  
+  }
+  ```
+### **차이점**
+
+- **데드락**: 스레드가 서로의 자원을 기다리면서 완전히 멈춘 상태.
+- **기아 상태**: 스레드가 자원에 대한 접근을 무기한 대기하는 상태, 하지만 시스템은 여전히 작동 중.
+- **라이브락**: 스레드들이 실행 상태이지만 실제로는 진전을 이루지 못하는 상태.
