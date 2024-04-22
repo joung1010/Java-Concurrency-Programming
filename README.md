@@ -3676,3 +3676,163 @@ synchronized 구문은 락의 획득과 해제가 내장되어 있어 암묵적�
   - 사용하기 더 편리하고 익숙하다
   - 성능상 크게 차이가 나지 않으며 락 해제가 불 필요하다
   - 복잡하지 않고 문법적으로 더 간단하며 단순한 동기화에서는 가독성이 좋을 수 있다.
+
+## ReentrantLock
+
+**`ReentrantLock`** 클래스는 Java의 **`java.util.concurrent.locks`** 패키지에 있는 **`Lock`** 인터페이스의 구현입니다. 이 클래스는 명시적인 락킹 메커니즘을 제공하며, 동시성 프로그래밍에서 보다 세밀한 잠금 제어가 가능합니다. 여기 `ReentrantLock`의 주요 API들과 각각의 사용 예를 살펴보겠습니다.
+
+### **1. ReentrantLock()**
+
+- **설명**: 기본 생성자로, '비공정 락'을 생성합니다. 이는 먼저 도착한 스레드가 락을 획득하지 못할 수 있음을 의미합니다.
+- **예제**:
+
+    ```java
+    
+    Lock lock = new ReentrantLock();
+    
+    ```
+
+
+### **2. ReentrantLock(boolean fair)**
+
+- **설명**: 공정성을 지정할 수 있는 생성자입니다. `fair`가 `true`일 경우, 가장 오래 기다린 스레드가 락을 획득합니다.
+- **예제**:
+
+    ```java
+    
+    Lock lock = new ReentrantLock(true); // 공정 락 생성
+    
+    ```
+
+
+### **3. void lock()**
+
+- **설명**: 락을 획득합니다. 락이 이미 다른 스레드에 의해 획득된 경우, 현재 스레드는 락이 해제될 때까지 대기합니다.
+- **예제**:
+
+    ```java
+    
+    lock.lock();
+    try {
+        // 임계 영역의 코드
+    } finally {
+        lock.unlock();
+    }
+    
+    ```
+
+
+### **4. void lockInterruptibly() throws InterruptedException**
+
+- **설명**: 락을 획득합니다. 하지만 현재 스레드가 인터럽트될 수 있으며, 인터럽트될 경우 `InterruptedException`을 던집니다.
+- **예제**:
+
+    ```java
+    
+    try {
+        // 락획득을 시도하며 인터럽트에 의해 중단 가능
+        lock.lockInterruptibly();
+        // 임계 영역의 코드
+    } catch (InterruptedException e) {
+        // 인터럽트 처리
+    } finally {
+        lock.unlock();
+    }
+    
+    ```
+
+
+### **5. boolean tryLock()**
+
+- **설명**: 락을 즉시 획득하려고 시도합니다. 락을 획득할 수 있으면 `true`를, 그렇지 않으면 `false`를 반환합니다.
+- **예제**:
+
+    ```java
+    
+    // 락획득 여부를 즉시반환함
+    // 락 획득을 실패하더라도 스레드가 대기하거나 차된지 않음
+    if (lock.tryLock()) {
+        try {
+            // 임계 영역의 코드
+        } finally {
+            lock.unlock();
+        }
+    }else{
+    // 락을 획득하지 못했을 경우 별도 처리
+  }
+    
+    ```
+
+
+### **6. boolean tryLock(long time, TimeUnit unit) throws InterruptedException**
+
+- **설명**: 지정된 시간 동안 락을 획득하려고 시도합니다. 시간 내에 락을 획득하면 `true`를, 그렇지 않으면 `false`를 반환합니다.
+- **예제**:
+
+    ```java
+    
+    try {
+        // 지정된 시간동안 락획득을 시도하고 시간이 경과하면 락 획득 실패하고 false를 반환
+        if (lock.tryLock(10, TimeUnit.SECONDS)) {
+            try {
+                // 임계 영역의 코드
+            } finally {
+                lock.unlock();
+            }
+        }
+    } catch (InterruptedException e) {
+        // 인터럽트 처리
+    }
+    
+    ```
+
+
+### **7. void unlock()**
+
+- **설명**: 락을 해제합니다. 락을 소유하지 않은 스레드가 이 메소드를 호출하면 `IllegalMonitorStateException`이 발생합니다.
+- **예제**:
+
+    ```java
+    
+    lock.unlock(); // 보통 finally 블록 내에서 호출됩니다.
+    
+    ```
+
+
+### **8. Condition newCondition()**
+
+- **설명**: 현재 락과 연관된 **`Condition`** 인스턴스를 반환합니다. 이 **`Condition`** 인스턴스는 특정 조건이 충족될 때까지 스레드가 기다리게 하거나, 특정 조건이 충족됐을 때 스레드에 신호를 보내는 데 사용됩니다.
+- **예제**:
+
+    ```java
+    
+    Condition condition = lock.newCondition();
+    
+    lock.lock();
+    try {
+        condition.await(); // 특정 조건이 충족될 때까지 대기
+        // 임계 영역의 코드
+        condition.signal(); // 다른 스레드에 신호
+    } finally {
+        lock.unlock();
+    }
+    
+    ```
+  
+### 그외 메서드
+- int getHoldCount()
+  - 현재 스레드가 이 락을 보유한 횟수를 반환하며 이 락을 보유하지 않은 경우에는 0을 반환
+- boolean isHeldByCurrentThread()
+  - 현재 스레드가 이 락을 보유하고 있는지 확인한다. 이 메서드는 주로 디버깅 및 테스트에 사용되며 락이 보유될 떄만 호출되어야 하는 메서드는 이러한 경우를 확인할 수 있다.
+- boolean hasQueuedThreads()
+  - 스레드가 이 락을 획득하기 위해 대기 중인지 여부를 조회한다.
+  - 취소는 언제든지 발생할 수 있으므로 true를 반환한다고 해서 다른 스레드가 이 락을 획득한다고 보장하지 않는다(모니터링 용으로 사용)
+- int getQueueLength()
+  - 대기 중인 스레드의 수의 추정치 반환
+- boolean hasWaiters(Condition condition)
+  - 해당 락과 관련된 지정된 Condition에 대기 중인 스레드가 있는지를 조회
+- int getWaitQueueLength(Condition condition)
+  - Condition에 대기중인 스레드의 수에 대한 추정치를 반환
+
+
+`ReentrantLock`을 사용함으로써 개발자는 더 세밀한 동시성 제어와 복잡한 동기화 스케줄링을 수행할 수 있습니다. 그러나 이러한 기능의 잘못된 사용은 복잡성과 오류의 가능성을 증가시킬 수 있으므로 주의가 필요합니다.
