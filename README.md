@@ -3933,15 +3933,15 @@ public class DataContainer {
 
 ### 주요 메소드
 
-1. **readLock()**
+1. **ReentrantReadWriteLock.readLock().lock()**
     - **설명**: 읽기 잠금을 제어하는 데 사용됩니다. 이 메소드는 **`Lock`** 인터페이스를 구현하는 객체를 반환합니다.
     - **용도**: 여러 스레드가 동시에 읽기 작업을 수행할 수 있도록 합니다. 쓰기 잠금이 활성화되어 있지 않은 경우에만 읽기 잠금을 획득할 수 있습니다.
-2. **writeLock()**
+2. **ReentrantReadWriteLock.writeLock().lock()**
     - **설명**: 쓰기 잠금을 제어하는 데 사용됩니다. 이 메소드 역시 **`Lock`** 인터페이스를 구현하는 객체를 반환합니다.
     - **용도**: 쓰기 작업을 위한 독점적인 접근을 제공합니다. 쓰기 잠금이 활성화되어 있는 동안 다른 스레드는 읽기나 쓰기를 수행할 수 없습니다.
 3. **lock()**
     - **설명**: 잠금을 획득합니다. 잠금을 이미 다른 스레드가 보유하고 있다면, 현재 스레드는 잠금을 획득할 수 있을 때까지 대기합니다.
-    - **용도**: 데이터에 안전한 접근을 보장하기 위해 잠금을 사용할 때 필수적으로 호출됩니다.
+    - **용도**: 데이터에 안전한 접근을 보장하기 위해 잠금을 사용할 때 필수적으로 호출됩니다. 만약 현재 읽기 락의 수가 0이라면 락은 쓰기 락 시도를 위해 사용 가능하게 된다.
 4. **unlock()**
     - **설명**: 잠금을 해제합니다.
     - **용도**: 작업 완료 후 데이터에 대한 접근을 다른 스레드에게 허용하기 위해 사용됩니다.
@@ -3951,26 +3951,29 @@ public class DataContainer {
 6. **lockInterruptibly()**
     - **설명**: 잠금을 획득하려고 대기하는 동안 스레드가 인터럽트(interrupt)될 수 있도록 합니다.
     - **용도**: 대기 중인 스레드가 인터럽트에 반응하게 하려는 경우 사용됩니다.
+7. **Condition newCondition()**
+   - ReadLock은 Condition을 지원하지 않기 때문에 UnsupportedOperationException이 발생한다.
+   - 읽기 락은 쓰기 락과 독립적으로 소유되므로 영향을 주지 않지만 현재 스레드가 읽기 락도 획득한 상태에서 조건 대기 메서드를 호출하는 것은 사실상 항상 오류이다. 왜냐하면 대기를 해제할 수 있는 다른 스레드도 쓰기 락을 획득하지 못할 수 있기 때문이다.
 
-   ### **사용 예시**
+      ### **사용 예시**
 
-    ```java
-    
-    ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
-    rwLock.readLock().lock();
-    try {
-        // 데이터 읽기 작업 수행
-    } finally {
-        rwLock.readLock().unlock();
-    }
-    
-    rwLock.writeLock().lock();
-    try {
-        // 데이터 쓰기 작업 수행
-    } finally {
-        rwLock.writeLock().unlock();
-    }
-    
-    ```
+```java
+
+ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+rwLock.readLock().lock();
+try {
+    // 데이터 읽기 작업 수행
+} finally {
+    rwLock.readLock().unlock();
+}
+
+rwLock.writeLock().lock();
+try {
+    // 데이터 쓰기 작업 수행
+} finally {
+    rwLock.writeLock().unlock();
+}
+
+```
 
    이 예시에서는 먼저 읽기 잠금을 획득하여 데이터 읽기 작업을 수행한 후 잠금을 해제합니다. 그 다음에 쓰기 잠금을 획득하여 데이터 쓰기 작업을 수행한 후 잠금을 해제합니다. 이러한 패턴은 데이터의 일관성과 동시성을 모두 관리하는 데 중요하다.
