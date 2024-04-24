@@ -4063,3 +4063,218 @@ public static void main(String[] args) {
 
 ```
 **`자바는 쓰기 락에서 읽기 락으로의 재진입은 허용한다.`**
+  
+## Condition
+Java에서 `Condition`은 **`java.util.concurrent.locks`** 패키지에 있는 인터페이스로, **`Object`** 클래스의 **`wait()`**, **`notify()`**, 그리고 **`notifyAll()`** 메소드에 대한 확장된 형태의 제어를 제공 한다. `Condition`은 특정 `Lock`과 연관되어 있으며, 더 세분화된 스레드 대기/통지 제어를 가능하게 합니다.
+
+Condition 은 **조건 변수 또는 조건 큐**로 알려진 객체로서 **Lock 과 결합**하여 객체 당 여러 개의 Wait Queue 을 가지는 효과를 제공한다 Lock 이 synchronized 메서드와 문장의 사용을 대체하는 것처럼 Condition은 **Object 모니터 메서드 (wait, notify and notifyAll) 의 사용을 대체**하며 Lock 에 바인딩된다.  
+  
+Condition 은 한 스레드가 다른 스레드로부터 어떤 상태 조건이 참이 될 수 있다는 통지를 받을 때까지 실행을 중단하도록 하는 수단을 제공한다. Condition 의 가장 중요한 특성은 **락을 원자적으로 해제**하고 현재 스레드를 중단하는 것이며 이는 Object.wait() 메서드와 동일하게 동작한다.
+
+| Java `Object` Methods | `ReentrantLock` Methods |
+|-----------------------|-------------------------|
+| `synchronized(object){}` | `lock.lock()`, `lock.unlock()` |
+| `object.wait()` | `condition.await()` |
+| `object.notify()` | `condition.signal()` |
+| `object.notifyAll()` | `condition.signalAll()` |
+  
+### 예제
+```java
+class SharedData{
+    private boolean hasItem = false;
+    
+    public void consume() throws InterruptedException {
+        synchronized (this) {
+            while (!hasItem) wait();
+            hasItem = false;
+        }
+    }
+    
+    public void produce() throws InterruptedException {
+        synchronized (this) {
+            hasItem = true;
+            notify(); //notifyAll(); 
+        }
+    }
+    
+}
+```
+
+```java
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+class SharedData {
+    private boolean hasItem = false;
+    private static final Lock lock = new ReentrantLock();
+    private static final Condition con = lock.newCondition();
+
+    public void consume() throws InterruptedException {
+        try {
+            lock.lock();
+            while (!hasItem) con.await();
+            hasItem = false;
+        }finally {
+            lock.unlock();
+        }
+    }
+
+    public void produce() throws InterruptedException {
+        try {
+            lock.lock();
+            hasItem = true;
+            con.signal(); //con.signalAll();
+        }finally {
+            lock.unlock();
+        }
+    }
+
+}
+```
+
+### **1. 일반적인 Lock 사용 예제**
+
+```java
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class Counter {
+    private final Lock lock = new ReentrantLock();
+    private int count = 0;
+
+    public void increment() {
+        lock.lock();
+        try {
+            count++;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public int getCount() {
+        lock.lock();
+        try {
+            return count;
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+
+```
+
+이 예제에서 **`Counter`** 클래스는 **`increment`** 메소드와 **`getCount`** 메소드를 통해 카운터를 관리합니다. `Lock`은 동시에 하나의 스레드만이 카운터를 증가시킬 수 있도록 보장합니다.
+
+### **2. Condition과 함께 사용하는 Lock 예제**
+
+```java
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+public class BoundedBuffer {
+    private final Lock lock = new ReentrantLock();
+    private final Condition notFull = lock.newCondition();
+    private final Condition notEmpty = lock.newCondition();
+    private final int[] items = new int[100];
+    private int putptr, takeptr, count;
+
+    public void put(int x) throws InterruptedException {
+        lock.lock();
+        try {
+            while (count == items.length)
+                notFull.await();  // 대기: 버퍼가 가득 찼을 때
+            items[putptr] = x;
+            if (++putptr == items.length) putptr = 0;
+            ++count;
+            notEmpty.signal();  // 알림: 버퍼에 공간이 생겼을 때
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public int take() throws InterruptedException {
+        lock.lock();
+        try {
+            while (count == 0)
+                notEmpty.await();  // 대기: 버퍼가 비었을 때
+            int x = items[takeptr];
+            if (++takeptr == items.length) takeptr = 0;
+            --count;
+            notFull.signal();  // 알림: 버퍼에 아이템이 추가되었을 때
+            return x;
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+
+```
+
+이 예제에서 **`BoundedBuffer`** 클래스는 고정된 크기의 버퍼를 관리합니다. **`put`** 메소드는 버퍼에 아이템을 추가하고, **`take`** 메소드는 버퍼에서 아이템을 가져옵니다.  
+  
+**`Condition`** 객체 `notFull`과 `notEmpty`는 버퍼의 상태에 따라 대기 및 통지를 관리합니다.
+
+### **차이점**
+
+- **대기 조건의 세밀한 제어**: **`Condition`**을 사용하면 특정 조건(예: 버퍼 가득 참, 버퍼 비어 있음)에 따라 스레드를 대기시키고, 해당 조건이 만족될 때 스레드를 깨울 수 있습니다. 일반 **`Lock`**만 사용하는 경우에는 이러한 세밀한 조건 기반의 제어가 불가능합니다.
+- **여러 대기 조건**: **`Condition`**을 사용하면 여러 대기 조건을 다룰 수 있습니다. 예를 들어, 하나의 **`Lock`**에 대해 "버퍼 가득 참"과 "버퍼 비어 있음"을 나타내는 두 개의 다른 **`Condition`** 객체를 사용할 수 있습니다.
+- **유연성**: **`Condition`**은 **`Object`**의 **`wait()`**와 **`notify()`**에 비해 더 유연한 대기/통지 메커니즘을 제공합니다. 여러 조건을 사용하여 서로 다른 상황에서 대기하거나 통지할 수 있습니다.
+
+### Condition 사용의 전반적인 흐름
+
+스레드 T1과 T2가 있을때 다음과 같은 흐름을 가진다.
+
+1. **Lock 획득**
+    - 스레드 T1은 **`lock()`** 메소드를 호출하여 잠금을 획득합니다.
+    - 이로 인해 T1은 임계 영역(자원에 대한 접근 권한이 있는 코드 영역)에 진입하여 작업을 수행할 수 있습니다.
+    - 다른 스레드들(T2, T3)은 이 잠금이 해제될 때까지 대기 큐에서 대기합니다.
+2. **Condition 대기**
+    - 스레드 T1은 특정 조건이 만족되지 않는 것을 확인하고 **`Condition`** 객체의 **`await()`** 메소드를 호출하여 대기 상태로 들어갑니다.
+    - T1은 **`Condition1 Queue`**로 이동하여, 이 조건이 신호를 받을 때까지 대기합니다.
+    - 이 때, 잠금(Lock)은 자동으로 해제되고, 다른 스레드들이 잠금을 획득할 수 있는 기회를 갖게 됩니다.
+3. **Lock 재획득 및 조건 충족**
+    - 대기 큐에서 기다리던 스레드 T2가 잠금을 획득하고 임계 영역에 진입하여 작업을 수행합니다.
+    - T2의 작업으로 인해 **`Condition1`**의 대기 조건이 충족되면, T2는 **`Condition1`**에 대해 **`signal()`** 또는 **`signalAll()`**을 호출하여 대기 중인 스레드(T1, T6) 중 하나 또는 모두를 깨울 수 있습니다.
+4. **Condition 알림 및 잠금 재획득**
+    - **`Condition1`**의 **`signal()`** 호출로 인해 T1이 깨어나 잠금을 재획득하기 위해 대기합니다.
+    - T1이 다시 잠금을 획득하면, 이전에 중단되었던 작업을 계속 수행할 수 있습니다.
+5. **다른 Condition 대기 및 알림**
+    - 동시에 다른 스레드들(T4, T5)은 **`Condition2`**를 사용하여 다른 조건에 대해 대기하고 있을 수 있습니다.
+    - 이 스레드들도 해당 조건이 충족되면 **`Condition2`**의 **`signal()`** 호출로 인해 깨어날 수 있습니다.
+6. **Unlock**
+    - 스레드 T1(또는 T6)이 작업을 완료하고 **`unlock()`**을 호출하면, 잠금이 해제됩니다.
+    - 이로 인해 다른 스레드들(T2, T3 또는 다른 대기 중인 스레드들)이 잠금을 획득할 수 있는 기회를 갖게 됩니다.
+
+### **주요 메소드**
+
+1. **await()**
+    - **설명**: 현재 스레드를 대기 상태로 만듭니다. 스레드는 다른 스레드가 **`signal()`** 또는 `signalAll()`을 호출할 때까지 대기합니다.
+      - 현재 스레드가 다음 네가지 중 하나가 바생할 때가지 대기하게 되며 이 Condition과 관련된 락은 원자적으로 해제된다.
+        - 다른 스레드가 이 Conditon에 대해 signal() 호출한경우
+        - 다른 스레드가 이 Conditon에 대해 signalAll() 호출한경우
+        - 다른 스레드가 현재 스레드를 인터럽트하고 스레드 중단의 인터럽션을 지원 하는 경우
+        - 의미 없는 깨어남(squrious wakeup) 이 발생함
+    - **유사**: **`Object.wait()`**
+2. **signal()**
+    - **설명**: 대기 중인 스레드 중 하나를 깨웁니다. **`await()`**을 호출하여 대기 중인 스레드 중 하나를 선택해 깨우게 됩니다.
+    - **유사**: **`Object.notify()`**
+3. **signalAll()**
+    - **설명**: 대기 중인 모든 스레드를 깨웁니다. 이 메소드는 **`await()`**을 호출하여 대기 중인 모든 스레드를 깨우게 됩니다.
+    - **유사**: **`Object.notifyAll()`**
+
+### 주의사항
+
+**signalAll() 보다 signal() 을 활용하라**
+
+- Condition 에서 신호를 알릴 때 signalAll() 보다 signal()을 사용하는 것이 다중 조건을 다루는 더욱 효과적인 방법일 수 있다
+- 한 개의 Lock 객체에서 생성한 여러 개의 Condition은 특정한 조건에 따라 스레드를 구분해서 관리함으로 미세한 제어를 가능하게 해준다
+- 여러 개의 조건이 있을 때 모든 스레드를 동시에 깨우면 경쟁 상태가 발생할 수 있으나 Condition 을 여러 개 사용하면 각각의 조건에 대해 필요한 스레드만 깨울 수 있다
+
+**Condition 사용 시 주의 사항**
+
+- Condition 객체는 단순한 일반 객체로서 synchronized 문에서 대상으로 사용하거나, 자체 모니터 wait 및 notify 메서드를 호출할 수 있다
+- Condition 객체의 모니터를 사용하는 것은 해당 Condition 과 연결된 Lock 을 사용하거나 await() 및 signal() 메서드를 사용하는 것과 특정한 관계가 없다
+- 혼동을 피하기 위해 Condition 인스턴스를 이러한 방식으로 사용하지 않는 것이 좋다
+  
