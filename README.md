@@ -4277,4 +4277,97 @@ public class BoundedBuffer {
 - Condition 객체는 단순한 일반 객체로서 synchronized 문에서 대상으로 사용하거나, 자체 모니터 wait 및 notify 메서드를 호출할 수 있다
 - Condition 객체의 모니터를 사용하는 것은 해당 Condition 과 연결된 Lock 을 사용하거나 await() 및 signal() 메서드를 사용하는 것과 특정한 관계가 없다
 - 혼동을 피하기 위해 Condition 인스턴스를 이러한 방식으로 사용하지 않는 것이 좋다
-  
+
+# 동기화 도구
+## CAS (Compare and Swap)
+
+Compare-and-Swap (CAS) 연산은 동시성 프로그래밍에서 동기화를 잠금 없이 달성하기 위해 사용되는 기본적인 원자적 명령이다. 이는 멀티 스레드 환경에서 스레드 간의 경쟁 조건을 방지하고 락을 사용하지 않고도 공유 변수의 값을 원자적으로 변경하는 방법을 제공한다. CAS 는 **CPU 캐시와 메인메모리의 두 값을 비교**하고 그 값이 동일할 경우 새로운 값으로 교체하는 동기화 연산으로 여러 스레드가 공유하는 메모리 영역을 보호하는 데 사용된다.
+
+CAS 는 락 기반의 동기화보다 **경량화**되어 있으며 락을 사용하지 않기 때문에 **대기하지 않는 넌블록킹 실행이 가능**하고 경쟁 조건과 데드락을 피할 수 있다. 또한 CAS는 조건에 따라 실패하고 **다시 시도**해야 할 수 있기 때문에 **동시적으로 접근하는 요청의 수가 많은 경쟁 조건일 경우 효율성이 저하**될 수 있다.
+
+CAS는 주로 하드웨어 수준(CPU) 에서 지원되는 연산이며 Java에서는 java.util.concurrent.atomic 패키지에 있는 원자적 연산을 통해 CAS를 지원하고 있다.
+
+### 동작 방식
+
+CAS 연산은 세 가지 매개변수를 사용합니다:
+
+1. **메모리 위치 (V)**: 연산이 수행될 변수의 주소입니다.(변수의 현재 메인 메모리 값)
+2. **예상되는 이전 값 (O)**: 프로그램이 현재 메모리 위치에 저장되어 있다고 가정하는 값입니다.(변수의 현재 기대하는 값)
+3. **새 값 (N)**: 메모리 위치에 쓰여질 새로운 값입니다.(변경 하려는 값)
+
+연산의 작동 방식은 다음과 같습니다:
+
+- **비교**: 메모리 위치 (V)의 현재 값과 예상되는 이전 값 (O)을 비교합니다.
+- **교환**: 위치의 현재 값이 예상되는 이전 값과 일치하면, 현재 값과 새 값 (N)을 교환합니다.
+- **결과**: 연산은 성공 또는 실패를 나타내는 부울 값을 반환합니다. 위치의 현재 값이 예상되는 이전 값과 일치하지 않으면 교환이 발생하지 않고 연산은 실패했음을 나타내는 false를 반환합니다. 그렇지 않으면 true를 반환합니다.
+
+### 구현
+
+```java
+public class SimpleCAS {
+    private int value;
+
+    public SimpleCAS(int initialValue) {
+        this.value = initialValue;
+    }
+
+    public synchronized boolean compareAndSet(int expectedValue, int newValue) {
+        // 현재 값이 예상 값과 일치하는지 확인
+        if (value == expectedValue) {
+            // 예상 값과 일치하면 새 값으로 업데이트
+            value = newValue;
+            return true;
+        }
+        // 예상 값과 일치하지 않으면 업데이트 실패
+        return false;
+    }
+
+    public synchronized int get() {
+        return value;
+    }
+
+    public static void main(String[] args) {
+        SimpleCAS cas = new SimpleCAS(0);
+
+        // CAS 연산을 사용하여 값 업데이트 시도
+        boolean updated = cas.compareAndSet(0, 1);
+        System.out.println("업데이트 성공: " + updated + ", 현재 값: " + cas.get());
+
+        // 실패할 CAS 연산 시도
+        updated = cas.compareAndSet(0, 2);
+        System.out.println("업데이트 성공: " + updated + ", 현재 값: " + cas.get());
+    }
+}
+```
+
+```java
+public class MultiThreadCASExample {
+    private static AtomicInteger value = new AtomicInteger(0);
+    private static final int NUM_THREADS = 3;
+    public static void main(String[] args) {
+        Thread[] threads = new Thread[NUM_THREADS];
+
+        for (int i = 0; i < NUM_THREADS; i++) {
+            threads[i] = new Thread(() -> {
+                for (int j = 0; j < 5; j++) {
+                    int expectedValue, newValue;
+                    do {
+                        expectedValue = value.get();
+                        newValue = expectedValue + 1;
+                    } while (!value.compareAndSet(expectedValue, newValue)); // 반환 값이 false 이면 true 가 반환 될 때 까지 재시도
+                           System.out.println(Thread.currentThread().getName() + ":" + expectedValue + " , " + newValue);
+                   }
+            });
+            threads[i].start();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("Final value: " + value.get());
+    }
+}
+```
