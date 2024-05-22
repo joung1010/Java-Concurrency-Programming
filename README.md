@@ -4371,3 +4371,119 @@ public class MultiThreadCASExample {
     }
 }
 ```
+
+## **Atomic Variables(단일 연산 변수)**
+
+java에서 제공하는 **`java.util.concurrent.atomic`** 패키지의 원자 변수(Atomic Variables)는 동기화 없이 단일 변수에 대한 원자적 연산을 수행할 수 있는 방법을 제공 한다. 이러한 연산은 스레드 안전하며 **`synchronized`** 블록이나 메서드를 사용할 필요가 없어, 고성능 동시성 애플리케이션에 적합하며 효율적입니다.
+
+단일연산변수는 락을 사용하지 않고도 여러 스레드 간에 안전하게 값을 공유하고 동기화하는 데 사용되며 **기본적으로 volatile 의 속성을 가지고 있다**. 단일연산변수는 원자적인(read-modify-write) 연산을 지원하여 내부적으로 Compare and Swap (CAS) 연산을 사용하여 데이터의 일관성과 안정성을 유지한다
+
+단일연산변수는 간단한 연산의 경우 락을 사용하는 것보다 월등히 빠른 성능을 보여 주지만 연산이 복잡거나 시간이 오래 걸리는 작업은 락을 사용하는 것보다 오버헤드가 커질 수 있다. 단일연산변수는 단일 연산에 대해 원자성을 보장하지만 여러 연산을 조합한 복잡한 동작에 대해서는 원자성이 보장되지 않을 수 있으며 강력한 동기화 메커니즘을 고려해야 한다.
+
+### 단일 연산 클레스(Atomic Class)
+
+1. **AtomicInteger**: **`int`** 값에 대한 원자적 연산을 제공합니다. 증가(**`incrementAndGet`**), 감소(**`decrementAndGet`**), 추가 및 가져오기(**`addAndGet`**) 등의 산술 연산 메서드를 포함합니다.
+2. **AtomicLong**: `AtomicInteger`와 유사하지만 **`long`** 값에 작업을 수행합니다. `int`의 범위를 초과할 수 있는 카운터와 누산기에 유용합니다.
+3. **AtomicBoolean**: **`boolean`** 값에 대한 원자적 연산을 제공합니다. 동시성 환경에서 플래그를 관리하는 데 유용합니다.
+4. **AtomicReference**: 객체 참조에 대한 원자적 연산을 허용합니다. 객체 참조를 원자적으로 업데이트하는 데 사용될 수 있으며, 락-프리 및 스레드-세이프한 데이터 구조의 구현에 적합합니다.
+5. **AtomicIntegerArray**, **AtomicLongArray**, **AtomicReferenceArray**: 각각 정수, 롱, 객체 참조의 배열에 대한 원자적 연산을 제공하는 클래스입니다.
+6. **AtomicIntegerFieldUpdater**, **AtomicLongFieldUpdater**, **AtomicReferenceFieldUpdater**: 객체의 특정 **`volatile`** 필드에 대한 원자적 업데이트를 허용하는 고급 도구입니다. 전체 객체를 원자 클래스로 래핑하지 않고도 객체의 특정 필드에 대해 원자성과 스레드 안전성을 유지해야 하는 시나리오에 유용합니다.
+7. **AtomicReferenceArray** : 참조 타입의 배열의 각 원소를 원자적으로 조작하는 클래스
+
+### 공통 메소드
+
+| 객체 | get()                                                       | 현재 값을 가져온다                                                        |
+| --- |-------------------------------------------------------------|-------------------------------------------------------------------|
+|  | void get()                                        | 현재 값을 가져온다.                                                       |
+|  | void set(T newValue)                                        | 새로운 값으로 설정한다                                                      |
+|  | getAndSet(T newValue)                                       | 현재 값을 가져오고 새로운 값을 설정한다                                            |
+|  | boolean compareAndSet(boolean expect, boolean update)       | 현재 값이 기대 값과 같으면 새 값을 설정한 후 true 를 반환하고 같지 않으면 변경없이 false 를 반환한다   |
+| 배열 | get(int i)                                                  | 인덱스 i 번째 값을 가져온다                                                  |
+|  | void set(int i, T newValue)                                 | 인덱스 i 번째에 새로운 값으로 설정한다                                            |
+|  | getAndSet(int i,T newValue)                                 | 인덱스 i 번째 값을 가져오고 새로운 값을 설정한다                                      |
+|  | boolean compareAndSet(int i,boolean expect, boolean update) | 인덱스 i 번째 값이 기대한 값과 같으면 새 값을 설정한 후 true 를 반환하고 같지 않으면 변경없이 false 를 
+    반환한다 |
+
+### **사용 예제**
+
+**`AtomicInteger`** 사용의 간단한 예제
+
+```java
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class Counter {
+    private final AtomicInteger count = new AtomicInteger();
+
+    public void increment() {
+        count.incrementAndGet();
+    }
+
+    public int getCount() {
+        return count.get();
+    }
+
+    public static void main(String[] args) {
+        Counter counter = new Counter();
+        counter.increment();
+        System.out.println("Count is " + counter.getCount());
+    }
+}
+```
+
+`AtomicReference`를 사용하는 간단한 예제
+
+```java
+import java.util.concurrent.atomic.AtomicReference;
+
+public class AtomicReferenceExample {
+    public static void main(String[] args) {
+        // 초기 객체 참조 생성
+        String initialReference = "initial value";
+        AtomicReference<String> atomicStringReference = new AtomicReference<>(initialReference);
+
+        // AtomicReference를 사용하여 객체 참조 업데이트
+        String newReference = "new value";
+        boolean wasNewReferenceSet = atomicStringReference.compareAndSet(initialReference, newReference);
+        System.out.println("참조가 새 값으로 업데이트 되었는가? " + wasNewReferenceSet);
+        System.out.println("현재 참조: " + atomicStringReference.get());
+
+        // 실패할 업데이트 시도
+        boolean wasUpdateAttemptSuccessful = atomicStringReference.compareAndSet(initialReference, "another new value");
+        System.out.println("업데이트 시도 성공: " + wasUpdateAttemptSuccessful);
+        System.out.println("현재 참조: " + atomicStringReference.get());
+    }
+}
+```
+
+### **이점**
+
+1. **성능**: 원자 변수는 특히 고부하 상황에서 명시적 잠금보다 훨씬 빠를 수 있으며, 비차단성으로 인해 성능이 우수 하다.
+2. **단순성**: 원자 변수를 사용한 코드는 잠금을 사용하는 것보다 종종 더 간단하고 명확 하다.
+3. **확장성**: 원자 변수를 사용하는 애플리케이션은 스레드 수가 증가함에 따라 잘 확장 된다.
+
+### 단점
+
+1. **한정된 연산 집합**: 원자 변수는 제한된 종류의 원자적 연산만 지원합니다. 예를 들어, **`AtomicInteger`**는 기본적인 증가, 감소, 추가 및 설정 연산을 지원하지만, 복잡한 사용자 정의 연산을 직접 구현하기 위해서는 추가적인 로직이 필요할 수 있습니다.
+2. **ABA 문제**: CAS(Compare-And-Swap) 연산을 사용하는 원자 변수는 ABA 문제에 취약할 수 있습니다. 즉, 변수가 A에서 B로 변경되었다가 다시 A로 되돌아가는 경우, CAS 연산은 여전히 성공할 수 있지만, 이 과정에서 발생한 변경을 감지할 수 없습니다. 이 문제를 해결하기 위해서는 추가적인 메커니즘(예: 버전 태깅)이 필요할 수 있습니다.
+3. **확장성 제한**: 대규모 데이터 구조에 원자 변수를 사용하는 경우, 특정 원자 변수에 대한 과도한 접근이 성능 병목을 일으킬 수 있습니다. 예를 들어, 많은 스레드가 단일 **`AtomicInteger`**를 동시에 업데이트하려고 할 때, 고성능 환경에서는 이러한 경쟁이 성능 저하를 초래할 수 있습니다.
+4. **메모리 오버헤드**: 각 원자 변수는 일반 변수보다 더 많은 메모리를 사용할 수 있습니다. 이는 소규모 변수가 많은 시스템에서는 문제가 되지 않을 수 있지만, 큰 규모의 시스템에서는 고려해야 할 요소입니다.
+5. **복잡한 데이터 구조 지원 부족**: 원자 변수는 단일 변수 또는 간단한 배열에 대한 원자적 연산을 지원하지만, 복잡한 사용자 정의 데이터 구조에 대한 직접적인 지원은 제공하지 않습니다. 복잡한 데이터 구조를 원자적으로 관리하려면 추가적인 설계와 구현이 필요합니다.
+6. **잠재적인 라이브락**: 잦은 충돌과 재시도로 인해 원자 변수를 사용하는 알고리즘에서 라이브락이 발생할 가능성이 있습니다. 이는 특히 고부하 상황에서 문제가 될 수 있으며, 성능에 부정적인 영향을 줄 수 있습니다.
+  
+### 사용비교
+| 기준 | Atomic 클래스 사용 | Lock 클래스 사용 |
+| --- | --- | --- |
+| 사용 상황 | 단일 변수 업데이트 | 여러 변수의 일관성 있는 업데이트 |
+| 복잡성 | 간단한 동시성 제어 | 복잡한 동시성 제어 |
+| 성능 | 경량화된 동시성 제어 | 경우에 따라 다름, 종종 무거움 |
+| CAS 연산 | 필요 | 필요 없음 |
+| 공정성 | 지원하지 않음 | 공정성 제어 필요시 사용 가능 (ReentrantLock의 공정 모드) |
+| 조건 변수 | 지원하지 않음 | 필요시 사용 가능 (Condition 객체) |
+| Locking 전략 | 단순 원자적 연산 | 재진입 가능 락, 읽기-쓰기 락 등 다양한 전략 사용 가능 |
+| 예시 | AtomicInteger counter = new AtomicInteger(0); | Lock lock = new ReentrantLock(); |
+| 주요 메소드 | incrementAndGet(), compareAndSet() | lock(), unlock(), newCondition() |
+| 적용 예 | 카운터, 플래그, 단일 변수 상태 관리 | 트랜잭션, 다중 자원 관리, 스레드 간 협력 |
+
+### **결론**  
+단일 변수에 대한 단순하고 빠른 원자적 연산이 필요하면 Atomic 클래스를 사용하세요.
+여러 변수에 대한 복잡한 동시성 제어, 공정성 보장, 조건 변수 사용 등이 필요하면 Lock을 사용하세요.
