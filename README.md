@@ -4586,4 +4586,99 @@ public class Main {
 | 필드 접근 | 필드 이름을 문자열로 지정하여 접근 | 인스턴스를 직접 통해 접근 |
 | 장점 | 기존 클래스의 특정 필드를 원자적으로 업데이트하여 더 유연한 동시성 제어 가능 | 간단하고 직관적인 원자적 변수 제공 |
 
-이 표는 `AtomicFieldUpdater`와 **`Atomic`** 타입의 주요 차이점과 각각의 장단점을 한눈에 볼 수 있게 정리한 것입니다. `AtomicFieldUpdater`는 기존 클래스의 필드를 원자적으로 업데이트할 때 유용하고 메모리 비용적인 측명에서 더 낫다, **`Atomic`** 타입은 독립적인 원자적 변수를 사용할 때 편리합니다.
+이 표는 `AtomicFieldUpdater`와 **`Atomic`** 타입의 주요 차이점과 각각의 장단점을 한눈에 볼 수 있게 정리한 것입니다. `AtomicFieldUpdater`는 기존 클래스의 필드를 원자적으로 업데이트할 때 유용하고 메모리 비용적인 측명에서 더 낫다, **`Atomic`** 타입은 독립적인 원자적 변수를 사용할 때 편리합니다.  
+  
+## CountDownLatch  
+
+`CountDownLatch`는 Java의 동시성 유틸리티 중 하나로, 하나 이상의 스레드가 다른 스레드나 스레드들이 하나 또는 여러 작업을 완료할 때까지 기다리게 하는 동기화 도구입니다.  
+  
+이 클래스는 **`java.util.concurrent`** 패키지 안에 있으며, 카운트 다운 래치는 생성 시 지정된 횟수만큼 이벤트가 발생할 때까지 대기할 수 있습니다. 카운트가 0에 도달하면, 이를 기다리고 있던 모든 스레드가 동시에 진행할 수 있게 됩니다.
+  
+### 사용 용도
+- 여러 개의 스레드가 병렬로 실행되는 경우 특정 작업이 시작되거나 완료될 때가지 다른 스레드들이 기다리도록 할 수 있다.
+- 여러 스레드가 초기화 작업을 마칠 때까지 기다렸다가 모든 스레드가 완료되면 마무리 작업을 수행할 수 있습니다.
+
+### **주요 특징 및 사용법**
+
+- **단방향 게이트**: `CountDownLatch`는 일회용 게이트처럼 작동하며, 초기 카운트를 설정한 후, 이 카운트가 0에 도달하면 재설정할 수 없습니다. 카운트가 0에 도달하면, 모든 대기 중인 스레드가 해제됩니다.
+- **카운트 감소**: **`countDown()`** 메서드는 래치의 카운트를 감소시킵니다. 카운트가 0이 되면, 래치를 기다리는 모든 스레드가 진행할 수 있습니다.
+- **대기**: **`await()`** 메서드를 호출하는 스레드는 래치의 카운트가 0이 될 때까지 차단(블록)됩니다. `await()`은 또한 타임아웃을 지정할 수 있는 오버로드 버전을 제공하여, 지정된 시간이 지나면 대기를 중단하고 계속 진행할 수 있습니다.
+
+### **예제 시나리오**
+
+`CountDownLatch`는 다음과 같은 시나리오에서 유용합니다:
+
+1. **복수의 작업 완료 대기**: 서버 시작 시 여러 초기화 작업이 비동기적으로 실행될 때, 모든 초기화 작업이 완료될 때까지 메인 스레드가 대기해야 하는 상황.
+2. **동시 시작**: 여러 스레드가 동시에 작업을 시작해야 하는 벤치마크 테스트나 경쟁 조건을 테스트하는 상황에서 모든 스레드가 동시에 시작하도록 설정.
+
+### 주요 메서드
+
+### **1. `await()`**
+
+- 이 메서드는 현재 스레드가 래치의 카운트가 0이 될 때까지 대기하도록 합니다. 만약 카운트가 이미 0이라면, 이 메서드는 즉시 반환됩니다.
+- 메서드는 `InterruptedException`을 던질 수 있으며, 이는 현재 스레드가 대기 중인 동안 인터럽트될 경우 발생합니다.
+
+### **2. `await(long timeout, TimeUnit unit)`**
+
+- 이 메서드는 최대 주어진 시간 동안 또는 카운트가 0이 될 때까지 현재 스레드가 대기하도록 합니다. 지정된 시간이 지나면, 이 메서드는 `false`를 반환하고 스레드는 계속 진행합니다. 카운트가 0에 도달하면 `true`를 반환합니다.
+- 이 버전의 `await`은 **`InterruptedException`** 뿐만 아니라 타임아웃을 관리하기 위해 `TimeUnit`을 요구합니다.
+
+### **3. `countDown()`**
+
+- 래치의 카운트를 1만큼 감소시킵니다. 이 메서드는 동기화 작업을 수행하는 스레드들이 자신의 작업을 완료했다는 것을 나타냅니다.
+- 만약 카운트가 이미 0이라면, 이 메서드의 호출은 아무런 효과가 없습니다.
+
+### **4. `getCount()`**
+
+- 현재 래치의 카운트를 반환합니다. 이는 래치가 완전히 해제될 때까지 얼마나 많은 이벤트들이 남았는지 확인할 때 유용합니다.
+
+### **사용 예**
+
+```java
+import java.util.concurrent.CountDownLatch;
+
+public class Main {
+    private static final int N = 3;  // 동기화할 스레드 수
+
+    public static void main(String[] args) throws InterruptedException {
+        CountDownLatch startSignal = new CountDownLatch(1);
+        CountDownLatch doneSignal = new CountDownLatch(N);
+
+        for (int i = 0; i < N; ++i) {  // N 스레드 생성
+            new Thread(new Worker(startSignal, doneSignal)).start();
+        }
+
+        System.out.println("모든 작업을 시작합니다...");
+        startSignal.countDown();  // 모든 스레드가 동시에 작업을 시작하도록 허용
+        doneSignal.await();       // 모든 작업이 완료될 때까지 대기
+        System.out.println("모든 작업이 완료되었습니다.");
+    }
+
+    static class Worker implements Runnable {
+        private final CountDownLatch startSignal;
+        private final CountDownLatch doneSignal;
+
+        Worker(CountDownLatch startSignal, CountDownLatch doneSignal) {
+            this.startSignal = startSignal;
+            this.doneSignal = doneSignal;
+        }
+
+        public void run() {
+            try {
+                startSignal.await();  // 시작 신호를 기다림
+                doWork();             // 실제 작업 수행
+                doneSignal.countDown(); // 작업 완료 신호
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            }
+        }
+
+        void doWork() {
+            // 작업 내용
+        }
+    }
+}
+
+```
+
+이 예제에서는 **`startSignal`** 래치를 사용해 모든 스레드가 거의 동시에 작업을 시작하도록 하고, **`doneSignal`** 래치로 모든 스레드의 작업이 완료될 때까지 메인 스레드가 기다리도록 합니다.
