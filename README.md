@@ -4487,3 +4487,103 @@ public class AtomicReferenceExample {
 ### **결론**  
 단일 변수에 대한 단순하고 빠른 원자적 연산이 필요하면 Atomic 클래스를 사용하세요.
 여러 변수에 대한 복잡한 동시성 제어, 공정성 보장, 조건 변수 사용 등이 필요하면 Lock을 사용하세요.
+
+
+## Atomic FieldUpdater
+
+Java에서 **`Atomic FieldUpdater`** 클래스들은 **기존의 변수들을 volatile 및 atomic하게 업데이트**할 수 있도록 해주는 **리플랙션 기반** 유틸리티입니다. 이 클래스들은 비용이 많이 드는 **`AtomicInteger`**, **`AtomicLong`** 등과 같은 클래스의 사용을 대체할 수 있으며, 일반 변수를 사용하면서도 lock-free thread-safe 프로그래밍을 가능하게 합니다.
+
+### **종류 및 사용법**
+
+1. **`AtomicIntegerFieldUpdater<T>`**: 클래스의 **`int`** 필드를 atomic하게 업데이트합니다. 필드는 반드시 `volatile`로 선언되어야 합니다.
+2. **`AtomicLongFieldUpdater<T>`**: 클래스의 **`long`** 필드를 atomic하게 업데이트합니다. 필드 역시 `volatile`로 선언되어야 합니다.
+3. **`AtomicReferenceFieldUpdater<T,V>`**: 클래스의 참조형 필드를 atomic하게 업데이트합니다. 이 필드도 `volatile`로 선언되어야 하며, 제네릭 타입 `V`의 객체 참조를 업데이트합니다.
+
+### 생성
+1. **`static newUpdater(Class<T>, String fieldName)`** : 적용하고자 하는 클레스의 타입과 필드명 설정합니다.
+2. **`static newUpdater(Class<T>,Class<T>, String fieldName)`** : 적용하고자 하는 클레스의 타입과 필드 타입,필드명을 설정합니다. 
+
+### **예제 코드**
+
+다음은 `AtomicIntegerFieldUpdater`를 사용한 간단한 예입니다.
+
+```java
+import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
+
+class Person {
+    volatile int age;
+
+    public Person(int initialAge) {
+        age = initialAge;
+    }
+}
+
+public class Main {
+    private static final AtomicIntegerFieldUpdater<Person> ageUpdater =
+        AtomicIntegerFieldUpdater.newUpdater(Person.class, "age");
+
+    public static void main(String[] args) {
+        Person person = new Person(20);
+        ageUpdater.getAndIncrement(person);
+        System.out.println("Updated age: " + person.age);
+    }
+}
+
+```
+
+이 코드에서 **`Person`** 클래스의 **`age`** 필드는 `volatile`로 선언되어 있으며, `AtomicIntegerFieldUpdater`를 통해 이 필드의 값을 atomic하게 증가시킵니다.
+
+### **장점**
+
+- **메모리 효율**: `AtomicFieldUpdater`는 기존의 객체 필드를 활용하므로, 각 변수를 위한 별도의 `AtomicInteger`나 **`AtomicLong`** 객체를 생성하지 않아도 됩니다.
+- **성능**: 대량의 atomic 변수가 필요한 애플리케이션에서 성능과 메모리 사용 측면에서 이점을 제공합니다.
+
+### **주의사항**
+
+- 업데이트하려는 필드는 항상 **`public`**, **`protected`** 또는 같은 패키지 내에 선언된 클래스에 한해서만 사용할 수 있으며, **`private`** 필드에는 사용할 수 없습니다.
+- **`final`**이나 **`static`** 필드에는 사용할 수 없습니다.
+- 멀티 스레드 환경에서 안전하게 사용하기 위해 필드는 **`volatile`**로 선언되어야 합니다.
+
+### **공통 메서드**
+
+이들 메서드는 **`AtomicIntegerFieldUpdater`**, **`AtomicLongFieldUpdater`**, `AtomicReferenceFieldUpdater`에 모두 존재합니다.
+
+- **get(Object obj)**: 지정된 객체에서 관리되는 필드의 현재 값을 반환합니다.
+- **set(Object obj, newValue)**: 지정된 객체의 필드를 새 값으로 설정합니다.
+- **lazySet(Object obj, newValue)**: **`set()`**과 유사하나, 값의 변경이 다른 스레드에게 즉시 보이지 않을 수 있습니다. 메모리 순서 느슨함을 허용하여 성능을 최적화합니다.
+- **compareAndSet(Object obj, expect, update)**: 객체의 현재 값이 **`expect`**와 같을 경우에만 **`update`**로 값을 변경합니다. 성공 시 **`true`**를 반환합니다.
+- **weakCompareAndSet(Object obj, expect, update)**: **`compareAndSet()`**과 비슷하지만 하나 또는 그 이상의 실패가 허용되는 상황에서 사용됩니다 (예를 들어, 성능 최적화를 위해).
+
+### **타입별 추가 메서드**
+
+각 타입 업데이터는 특정 데이터 타입에 맞춰 추가적인 메서드를 제공합니다.
+
+### **`AtomicIntegerFieldUpdater` 및 `AtomicLongFieldUpdater`**
+
+- **getAndIncrement(Object obj)**: 필드 값을 가져온 후에 1 증가시킵니다.
+- **getAndDecrement(Object obj)**: 필드 값을 가져온 후에 1 감소시킵니다.
+- **getAndAdd(Object obj, delta)**: 필드 값을 가져온 후에 **`delta`** 만큼 증가시킵니다.
+- **incrementAndGet(Object obj)**: 필드 값을 1 증가시킨 후 결과 값을 반환합니다.
+- **decrementAndGet(Object obj)**: 필드 값을 1 감소시킨 후 결과 값을 반환합니다.
+- **addAndGet(Object obj, delta)**: 필드 값을 **`delta`** 만큼 증가시킨 후 결과 값을 반환합니다.
+
+### **`AtomicReferenceFieldUpdater`**
+
+- **getAndSet(Object obj, newValue)**: 필드의 현재 값을 가져온 후, 새 값을 설정합니다. 이전 값을 반환합니다.
+
+이 메서드들을 사용하여 멀티 스레드 환경에서 공유 데이터의 일관성과 원자성을 보장할 수 있습니다. 이는 데이터 경쟁 및 동시성 오류를 방지하는 데 중요합니다.  
+
+### **AtomicFieldUpdater vs Atomic Type 비교표**
+
+| 특징 | AtomicFieldUpdater | Atomic 타입 (AtomicInteger, AtomicLong, AtomicBoolean 등) |
+| --- | --- | --- |
+| 용도 | 클래스의 특정 필드를 원자적으로 업데이트 | 원자적 업데이트를 위한 자체적으로 관리되는 변수를 제공 |
+| 적용 대상 | 기존 클래스의 필드 | 독립적인 원자적 변수 |
+| 사용 방법 | AtomicFieldUpdater 인스턴스를 생성하여 특정 필드를 업데이트 | AtomicInteger, AtomicLong, AtomicBoolean 등 클래스의 인스턴스를 사용 |
+| 동시성 제어 | 여러 스레드에서 안전하게 특정 필드 접근 및 업데이트 가능 | 여러 스레드에서 안전하게 변수 접근 및 업데이트 가능 |
+| 예제 코드 | AtomicIntegerFieldUpdater<MyClass> updater = AtomicIntegerFieldUpdater.newUpdater(MyClass.class, "myField"); updater.incrementAndGet(instance); | AtomicInteger atomicInt = new AtomicInteger(0); atomicInt.incrementAndGet(); |
+| 주요 메서드 | get(), set(), lazySet(), compareAndSet(), getAndIncrement(), incrementAndGet() 등 | get(), set(), lazySet(), compareAndSet(), getAndIncrement(), incrementAndGet() 등 |
+| 필드 접근 | 필드 이름을 문자열로 지정하여 접근 | 인스턴스를 직접 통해 접근 |
+| 장점 | 기존 클래스의 특정 필드를 원자적으로 업데이트하여 더 유연한 동시성 제어 가능 | 간단하고 직관적인 원자적 변수 제공 |
+
+이 표는 `AtomicFieldUpdater`와 **`Atomic`** 타입의 주요 차이점과 각각의 장단점을 한눈에 볼 수 있게 정리한 것입니다. `AtomicFieldUpdater`는 기존 클래스의 필드를 원자적으로 업데이트할 때 유용하고 메모리 비용적인 측명에서 더 낫다, **`Atomic`** 타입은 독립적인 원자적 변수를 사용할 때 편리합니다.
