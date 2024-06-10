@@ -4682,3 +4682,97 @@ public class Main {
 ```
 
 이 예제에서는 **`startSignal`** 래치를 사용해 모든 스레드가 거의 동시에 작업을 시작하도록 하고, **`doneSignal`** 래치로 모든 스레드의 작업이 완료될 때까지 메인 스레드가 기다리도록 합니다.
+  
+## CyclicBarrier  
+
+`CyclicBarrier`는 Java의 **`java.util.concurrent`** 패키지에서 제공하는 동기화 도구로, 여러 스레드가 서로 기다렸다가 일정 지점(barrier point)에서 동시에 작업을 진행할 수 있도록 합니다. 이 도구는 특히 병렬 프로그래밍에서 여러 작업이 서로 다른 단계를 동시에 시작하게 하고 싶을 때 유용하게 사용됩니다. 대기 중인 스레드가 해제된 후에 재 사용할 수 있기 때문에 순환 장벽이라고 부른다.
+
+또 한 CyclicBarrier는 옵션으로 Runnable 명령을 지원하고 이 명령은 마지막 스레드가 도착한 후에 각 장벽 지점마다 한 번씩 실행되는 장벽액션(barrierAction) 역할을 수행한다.(해당 명령어는 공유 상태를 업데이트 하는데 유용하다.)
+  
+### 사용 용도
+- 여러 스레드가 병렬로 작업을 수행하다가 특정 단계에 도달하거나 모든 스레드가 특정한 작업을 완료하고 모이는 지점에서 사용
+  - 병렬로 계산 작업 중 중간 결과를 모두 계산한 후에 다음 단계로 진행하기 위해 스레드들이 모이는 경우 유용
+- 고정된 수의 스레드가 동시에 특정 작업을 수행하고 모든 스레드가 작업을 완료하고 모이는 시점에서 다음 단계를 진행할 때 사용
+  - 스레드간 협력하여 작업을 분산하고 동기화 하는데 사용
+
+### **주요 특징 및 작동 원리**
+
+- **동시성 조절**: `CyclicBarrier`는 주어진 고정 수의 스레드(참여자)가 모두 도착할 때까지 각 스레드를 차단(block)합니다. 모든 스레드가 도착하면, 장벽은 해제됩니다.
+- **사이클 사용**: 이름에서 알 수 있듯이, `CyclicBarrier`는 재사용이 가능합니다. 한 사이클의 작업이 끝나면, 바리어는 자동으로 리셋되어 다음 사이클의 작업에 다시 사용할 수 있습니다.
+- **바리어 액션**: 선택적으로, 모든 스레드가 바리어에 도착했을 때 실행할 수 있는 Runnable 태스크(바리어 액션)를 설정할 수 있습니다. 이는 모든 스레드가 도착하면 실행되며, 예를 들어 다음 단계의 작업을 준비하는 초기화 코드를 실행하는 데 사용될 수 있습니다.
+
+### **주요 메서드**
+
+- **`await()`**: 호출한 스레드를 바리어에 차단합니다. 모든 스레드가 `await()`을 호출하면, (설정된 바리어 액션이 있다면 실행된 후) 모든 스레드가 동시에 장벽을 넘어 진행할 수 있습니다.
+- **`await(long timeout, TimeUnit unit)`**: 최대 주어진 시간 동안 바리어에서 대기합니다. 시간이 초과되면 `TimeoutException`이 발생할 수 있습니다.
+- **`getNumberWaiting()`**: 현재 바리어에서 대기 중인 스레드의 수를 반환합니다.
+- **`getParties()`**: 바리어를 통과하기 위해 필요한 스레드의 총 수를 반환합니다.
+- **`reset()`**: 바리어를 초기 상태로 재설정합니다. 이 메서드는 주의해서 사용해야 하며, 대기 중인 스레드가 있다면 `BrokenBarrierException`을 발생시킬 수 있습니다.
+- **`isBroken()`**: 바리어가 중단되었는지의 여부를 확인합니다. 중단은 스레드 중 하나가 바리어를 대기 중에 인터럽트 받았거나 타임아웃이 발생했을 때 일어날 수 있습니다.
+
+### **사용 예**
+
+```java
+import java.util.concurrent.CyclicBarrier;
+
+public class Main {
+    private static final int PARTIES = 3;
+    private static final CyclicBarrier barrier = new CyclicBarrier(PARTIES, new BarrierAction());
+
+    public static void main(String[] args) {
+        for (int i = 0; i < PARTIES; i++) {
+            new Thread(new Task()).start();
+        }
+    }
+
+    static class Task implements Runnable {
+        public void run() {
+            try {
+                System.out.println(Thread.currentThread().getName() + " is waiting at the barrier.");
+                barrier.await();
+                System.out.println(Thread.currentThread().getName() + " has crossed the barrier.");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    static class BarrierAction implements Runnable {
+        public void run() {
+            System.out.println("All parties have arrived at the barrier, let's proceed.");
+        }
+    }
+}
+
+```
+
+이 예제에서는 세 개의 스레드가 각각 `await()`를 호출하여 바리어에서 대기합니다. 세 스레드 모두 바리어에 도달하면, `BarrierAction`이 실행되고, 그 후 모든 스레드가 동시에 바리어를 넘어 계속 진행합니다. 이런 방식으로 `CyclicBarrier`는 복잡한 동시성 문제를 해결하는데 유용하게 사용될 수 있습니다.  
+
+### CountDownLatch vs CyclicBarrier
+
+### **기능 및 사용 사례 비교**
+
+### **CountDownLatch**
+
+- **기능**: 한 번 설정된 카운트가 0이 될 때까지 다른 스레드들이 대기하도록 하는 일회성 장벽입니다. 카운트는 오직 감소만 가능하며, 0에 도달하면 더 이상 재설정할 수 없습니다.
+- **사용 사례**: 초기화 작업이 여러 스레드에 의해 완료되기를 기다릴 때 사용됩니다. 예를 들어, 서버 시작 시 여러 구성 요소가 초기화되고, 모든 구성 요소의 초기화가 완료되기를 메인 스레드가 기다리는 경우 등에 적합합니다.
+- **일회성 사용**: 한 번 0에 도달하면, `CountDownLatch`는 재설정할 수 없습니다. 따라서 같은 인스턴스를 반복적으로 사용할 수 없습니다.
+
+### **CyclicBarrier**
+
+- **기능**: 모든 참가자 스레드가 어떤 지점(바리어 포인트)에 도달할 때까지 기다렸다가, 모두 도달하면 동시에 진행합니다. `CyclicBarrier`는 재사용이 가능하여, 한 사이클이 끝나면 자동으로 리셋됩니다.
+- **사용 사례**: 분할 정복 알고리즘과 같이 반복적으로 동기화가 필요한 작업에 사용됩니다. 예를 들어, 다단계 파이프라인 처리나 동시에 작업을 시작해야 하는 복수의 스레드 관리에 적합합니다.
+- **재사용 가능**: 사이클이 완료될 때마다 자동으로 리셋되므로, 같은 **`CyclicBarrier`** 인스턴스를 반복적으로 사용할 수 있습니다.
+
+### **특징 비교**
+
+| 특징 | CountDownLatch | CyclicBarrier |
+| --- | --- | --- |
+| 목적 | 다른 스레드가 작업을 완료할 때까지 기다림 | 모든 스레드가 동시에 작업을 시작하거나 다음 단계로 진행할 수 있도록 함 |
+| 재사용성 | 재사용 불가 | 재사용 가능 |
+| 동작 방식 | 카운트 다운 | 모든 스레드가 바리어 포인트에 도착하면 다음 단계로 진행 |
+| 바리어 액션 | 없음 | 선택적으로 바리어 액션 실행 가능 |
+
+### **결론**
+
+이러한 차이점들은 `CountDownLatch`와 **`CyclicBarrier`** 각각이 다르게 적합한 상황을 나타냅니다. `CountDownLatch`는 일련의 이벤트나 작업이 완료되기를 기다리는 데 적합하고, `CyclicBarrier`는 다수의 스레드가 반복적으로 동기화되어야 하는 상황에서 유용합니다. 각 도구의 특성을 이해하고, 요구하는 동기화 요구 사항에 맞게 선택하는 것이 중요합니다.
