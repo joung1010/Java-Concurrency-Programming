@@ -4829,32 +4829,72 @@ public class Main {
 Java에서는 **`ExecutorService`** 인터페이스를 통해 스레드풀을 쉽게 구현할 수 있습니다. 다음은 `ExecutorService`를 사용하여 스레드풀을 생성하고 간단한 작업을 여러 스레드에 할당하는 예제입니다.
 
 ```java
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+public class SimpleThreadPool {
+    private int numThreads;
+    private Queue<Runnable> taskQueue;
+    private Thread[] threads;
+    private volatile boolean isShutdown;
 
-public class ThreadPoolExample {
-    public static void main(String[] args) {
-        // 스레드 4개를 가진 스레드풀 생성
-        ExecutorService executor = Executors.newFixedThreadPool(4);
+    public SimpleThreadPool(int numThreads) {
+        this.numThreads = numThreads;
+        this.taskQueue = new LinkedList<>();
+        this.threads = new Thread[numThreads];
+        isShutdown = false;
 
-        for (int i = 0; i < 10; i++) {
-            int taskId = i;
-            executor.submit(() -> {
-                System.out.println("Task " + taskId + " is running");
-                try {
-                    // 일부 작업 수행 (여기선 단순 대기)
-                    TimeUnit.SECONDS.sleep(1);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            });
+        for (int i = 0; i < numThreads; i++) {
+            threads[i] = new WorkerThread();
+            threads[i].start();
         }
+    }
 
-        // 스레드풀 종료
-        executor.shutdown();
+    public void submit(Runnable task) {
+        if (!isShutdown) {
+            synchronized (taskQueue) {
+                taskQueue.offer(task);
+                taskQueue.notifyAll();
+            }
+        }
+    }
+
+    public void shutDown() {
+        isShutdown = true;
+        synchronized (taskQueue) {
+            taskQueue.notifyAll();
+        }
+        for (Thread thread : threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    private class WorkerThread extends Thread {
+        @Override
+        public void run() {
+            while (!isShutdown) {
+                Runnable task;
+                synchronized (taskQueue) {
+                    while (taskQueue.isEmpty() && !isShutdown) {
+                        try {
+                            taskQueue.wait();
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+                if (taskQueue.isEmpty()) {
+                    continue;
+                }
+                task  = taskQueue.poll();
+                task.run();
+            }
+
+        }
     }
 }
+
 
 ```
 
