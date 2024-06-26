@@ -4900,4 +4900,114 @@ public class SimpleThreadPool {
 
 이 예제에서 `Executors.newFixedThreadPool(4)`는 4개의 스레드를 가진 풀을 생성합니다. **`executor.submit()`** 메소드는 작업을 스레드풀의 작업 큐에 추가합니다. 모든 작업이 추가된 후, **`executor.shutdown()`** 메소드를 호출하여 스레드풀을 안전하게 종료합니다.
 
-스레드풀을 사용하면 많은 멀티스레딩 문제를 보다 쉽게 관리할 수 있으며, 시스템 리소스를 효과적으로 활용할 수 있습니다.
+스레드풀을 사용하면 많은 멀티스레딩 문제를 보다 쉽게 관리할 수 있으며, 시스템 리소스를 효과적으로 활용할 수 있습니다.  
+  
+## Executor 
+java의 Executor Framework는 스레드 관리와 작업 실행을 위한 강력한 툴셋을 제공합니다.  
+  
+이 프레임워크는 개발자가 멀티스레딩 관련 복잡성을 쉽게 처리할 수 있도록 설계되었으며, 스레드 생성과 생명 주기 관리, 작업 큐잉 및 실행 등을 추상화하여 다룹니다.
+
+### **Executor Framework의 주요 인터페이스**
+
+1. **Executor**: 가장 기본적인 인터페이스로, **`execute(Runnable command)`** 메소드를 통해 새로운 태스크를 실행합니다.
+2. **ExecutorService**: **`Executor`**를 확장한 인터페이스로, 라이프사이클 메소드(**`shutdown()`**, **`shutdownNow()`**)를 포함하여 태스크를 보다 세밀하게 관리할 수 있습니다. 비동기 태스크 실행 결과를 나타내는 **`Future`** 객체를 반환하는 **`submit()`** 메소드도 제공합니다.
+3. **ScheduledExecutorService**: `ExecutorService`를 확장하여 지정된 지연 시간이나 주기적으로 태스크를 실행할 수 있습니다. **`schedule()`**, **`scheduleAtFixedRate()`**, **`scheduleWithFixedDelay()`** 등의 메소드를 제공합니다.
+4. **ThreadPoolExecutor**: `ExecutorService`를 구현하며, 스레드 풀의 생성과 관리를 담당합니다. 워커 스레드 수, 최대 스레드 수, 유휴 스레드의 생존 시간, 작업 큐 등을 설정할 수 있습니다.
+5. **ForkJoinPool**: 대규모 태스크를 작은 부분으로 나누고, 이 결과를 재귀적으로 결합하는 특별한 목적의 `ExecutorService`입니다. 병렬 프로그래밍을 효율적으로 수행할 수 있도록 설계되었습니다.
+
+### **Executor**
+
+**`Executor`** 인터페이스는 단 하나의 메소드를 정의합니다:
+
+```java
+
+void execute(Runnable command);
+
+```
+
+여기서 `Runnable`은 실행할 작업을 정의하는 인터페이스입니다. **`Runnable`** 객체는 **`run()`** 메소드를 통해 실행할 수 있는 작업을 포함합니다. 이때  Runnable 명령은 Executor 구현 방식에 따라 새 스레드, 풀 스레드 또는 호출 스레드에서 실행 될 수 있다.
+
+즉, 전달된(Submit) Runnable 작업을 실행(Execute)하는 객체이다.
+
+### **사용 방법**
+
+**`Executor`** 인터페이스를 사용하는 기본적인 방법은 **`execute`** 메소드에 **`Runnable`** 객체를 전달하여 비동기적으로 실행하는 것입니다. `Executor`는 이 `Runnable`을 받아 스레드 풀에 있는 스레드나 새로운 스레드에서 실행합니다.
+
+### **예제**
+
+```java
+public static void main(String[] args) {
+    Executor executor = Executors.newSingleThreadExecutor();
+    executor.execute(() -> {
+        System.out.println("Running in " + Thread.currentThread().getName());
+    });
+}
+
+```
+
+직접 스레드를 생성하고 실행하는 것이 아니라 특정 Runnable을 전달하면 스레드 생성과 실행을 해당 Executor에서 처리하여 좀 더 유연하게 로직을 처리할 수 있다.
+
+### **Executor의 한계**
+
+- **결과 반환 불가**: `Runnable`은 반환 값이 없으므로, 작업의 결과를 직접 처리하거나 다른 방법으로 전달해야 합니다.
+- **작업 제어 부족**: 작업을 시작한 후에는 그 작업을 중지하거나 그 상태를 확인하는 방법이 없습니다.
+- **작업 완료 처리**: 작업이 완료된 후에 특정 행동을 실행하도록 설정하는 것이 어렵습니다.
+- **예외 처리**: 작업 실행 중 발생한 예외를 적절히 관리하거나 추적하기 어렵습니다.
+
+Java의 **`Executor`** 인터페이스는 작업을 비동기적으로 실행하는 매우 간단한 방법을 제공하지만, 작업 관리와 관련된 기능은 제한적입니다. **`Executor`** 인터페이스는 단순히 **`Runnable`** 작업을 실행할 수 있게 해주며, 작업 실행 완료 상태, 결과 반환, 실행 취소, 실행 완료 후 처리 등에 대한 어떠한 메커니즘도 제공하지 않습니다. 이러한 기능들은 복잡한 멀티스레드 애플리케이션에서 중요할 수 있습니다.
+
+### **ExecutorService 인터페이스**
+
+`ExecutorService`는 `Executor`의 한계를 극복하기 위해 설계된 더 강력한 인터페이스입니다. `ExecutorService`는 `Executor`를 상속받아, 스레드 **풀 관리와 작업 실행의 라이프사이클을 포괄적으로 제어**할 수 있는 메소드를 추가합니다. 주요 기능은 다음과 같습니다.
+
+1. **작업 실행 결과 반환**: **`submit()`** 메소드를 사용하면, **`Callable`** 또는 **`Runnable`** 작업을 제출하고, **`Future`** 객체를 반환받을 수 있습니다. `Future`를 통해 작업의 결과를 얻거나, 작업이 완료되었는지 확인하고, 작업을 취소할 수 있습니다.
+2. **라이프사이클 관리**: `shutdown()`과 **`shutdownNow()`** 메소드를 통해 스레드 풀을 단계적으로 종료하거나 즉시 종료할 수 있습니다. `shutdown()`은 모든 작업이 완료되면 스레드 풀을 종료하고, `shutdownNow()`는 현재 대기 중인 작업을 취소하고 스레드 풀을 즉시 종료합니다.
+3. **작업 완료 대기**: **`awaitTermination()`** 메소드를 사용하여 스레드 풀이 완전히 종료될 때까지 기다릴 수 있습니다.
+4. **작업 일괄 처리**: `invokeAll()`과 **`invokeAny()`** 메소드를 사용하여 작업 목록을 일괄적으로 실행하고, 모든 작업이 완료되기를 기다리거나, 첫 번째로 완료된 작업의 결과를 받을 수 있습니다.
+
+### **예제: ExecutorService 사용**
+
+```java
+import java.util.concurrent.*;
+
+public class ExecutorServiceExample {
+    public static void main(String[] args) {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        Callable<String> task = () -> {
+            TimeUnit.SECONDS.sleep(2);
+            return "Result of Task";
+        };
+
+        Future<String> future = executor.submit(task);
+
+        try {
+            // 작업의 결과를 기다린다, 최대 1분
+            String result = future.get(1, TimeUnit.MINUTES);
+            System.out.println(result);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            e.printStackTrace();
+        }
+
+        executor.shutdown();
+    }
+}
+
+```
+
+이 예제에서는 `ExecutorService`를 사용하여 작업을 제출하고, `Future`를 통해 작업 결과를 받습니다. `submit()`은 작업 실행을 위임하고, `get()`은 실행 결과를 대기합니다.
+
+`ExecutorService`는 고급 스레드 관리와 작업 실행 기능을 제공하여, Java에서 복잡한 멀티스레드 프로그램을 효율적으로 구현할 수 있도록 지원합니다.
+
+### **주의사항 및 이점**
+
+Executor Framework 사용시 주의해야 할 점은 다음과 같습니다:
+
+- 스레드 풀을 적절히 종료하지 않으면 애플리케이션이 종료되지 않는 문제가 발생할 수 있습니다. 작업이 완료된 후에는 반드시 **`shutdown()`** 또는 `shutdownNow()`를 호출해야 합니다.
+- 리소스를 과도하게 사용하지 않도록 적절한 스레드 풀 크기를 설정해야 합니다.
+
+Executor Framework의 이점은 다음과 같습니다:
+
+- 스레드 관리의 복잡성이 감소합니다.
+- 자원 사용이 최적화되고 성능이 향상됩니다.
+- 코드의 가독성과 유지보수성이 향상됩니다.
