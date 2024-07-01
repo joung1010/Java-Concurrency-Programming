@@ -5215,20 +5215,68 @@ public class AsyncService {
 - 비동기 작업은 스레드 간 **실행의 흐름이 독립적**이기 때문에 비동기 작업의 완료 시점에 결과를 얻을 수 있어야 한다.
 
 ### **Future의 구조**
+자바에서 Future는 비동기 작업의 결과를 가져올 수 있도록 도와주는 인터페이스이다. 비동기 작업이 완료되었는지 여부를 확인하고 조건에 따라 작업취소 또는 작업의 결과를 얻을 수 있다.  
+  
+작업의 결과를 가져올 때까지는 블로킹되며 여러 작업을 조합하는 문제, 예외처리 등의 어려움이 존재하지만 **자바 8부터는 CompletedFuture** 와 같은 개선된 비동기 도구를 제공한다.
+  
 
 **`Future`** 인터페이스는 다음과 같은 주요 메소드를 제공합니다:
 
 1. **boolean cancel(boolean mayInterruptIfRunning)**
-    - 이 메소드는 실행 중인 작업을 취소하려고 시도합니다. **`mayInterruptIfRunning`** 파라미터가 `true`이면 진행 중인 스레드를 중단시킬 수 있습니다. 작업이 취소되면 `true`를, 그렇지 않으면 `false`를 반환합니다.
+    - 이 메소드는 실행 중인 작업을 취소하려고 시도합니다. **`mayInterruptIfRunning`** 파라미터가 `true`이면 진행 중인 스레드를 중단시킬 수 있습니다.(작업결과를 가져올때 취소 예외가 발생) 작업이 취소되면 `true`를, 그렇지 않으면 `false`를 반환합니다.
+    - **`mayInterruptIfRunning`** 파라미터가 `false`이면 진행중인 작업을 완료할 수 있습니다. 단, 작업결과를 가져올때 취소 예외가 발생합니다.
 2. **boolean isCancelled()**
     - 작업이 취소되었는지 여부를 반환합니다. 작업이 취소되었다면 `true`를 반환합니다.
 3. **boolean isDone()**
     - 작업이 완료되었는지 여부를 확인합니다. 작업이 완료되었거나 예외가 발생했거나, 작업이 취소되었으면 `true`를 반환합니다.
 4. **V get()**
     - 계산된 결과를 반환받습니다. 결과가 준비될 때까지 호출 스레드가 블록됩니다.
+    - 예외발생:CancellationException(작업이 취소된 경우) , ExecutionException(작업이 예외를 발생시킨 경우) , InterruptedException(현재 스레드가 대기중에 인터럽트 된 경우)
 5. **V get(long timeout, TimeUnit unit)**
     - 지정된 시간 내에 결과를 반환받습니다. 지정된 시간이 초과되면 `TimeoutException`을 던집니다.
-
+  
+### 흐름도
+```plaintext
+┌────────────┐
+│   Client   │
+└────────────┘
+      │
+      ▼
+┌────────────┐
+│  Executor  │
+│ (ThreadPool)│
+└────────────┘
+      │
+      ▼
+┌──────────────────────┐
+│    Callable/         │
+│  Runnable Task       │
+└──────────────────────┘
+      │
+      ▼
+┌──────────────────────┐
+│      Thread          │
+│(from ThreadPool)     │
+└──────────────────────┘
+      │
+      ▼
+┌─────────────────────────┐
+│      Future Object      │
+│(Holds result or error)  │
+└─────────────────────────┘
+      │
+      ▼
+┌──────────────────────────┐
+│      Future.get()        │
+│(Blocks if not completed) │
+└──────────────────────────┘
+      │
+      ▼
+┌──────────────────────────┐
+│      Result or Error     │
+└──────────────────────────┘
+```
+  
 ### **원리**
 
 `Future`는 다음과 같은 원리로 동작합니다:
@@ -5268,3 +5316,70 @@ public static void main(String[] args) {
 **`get()`** 메소드를 사용하여 작업 완료를 최대 3초까지 기다리고, 그 시간 안에 작업이 완료되면 결과를 출력합니다. 이때 결과값이 `Future`에 전달되지 않았다면 내부적으로 **wait()** 을 통해 결과값을 얻기까지 메인 스레드가 대기한다.(결과 값이 전달 되면 **notify()** 호출해서 메인 스레드를 깨움)
 
 `Future`는 Java에서 비동기 작업을 관리하고 결과를 효율적으로 처리하는 강력한 메커니즘을 제공합니다.
+
+### FutureTask의 주요 특징
+FutureTask는 Future와 Runnable을 구현하는 클래스입니다. 이는 비동기 작업을 수행하고 그 결과를 저장하는 데 사용됩니다.
+
+FutureTask는 비동기 작업을 관리하는 데 유용하며, 이를 통해 작업의 상태를 추적하고, 작업이 완료되었는지 여부를 확인하고, 작업 결과를 가져오거나 취소할 수 있습니다.
+```java
+public static void main(String[] args) {
+    // Callable을 사용하여 비동기 작업 정의
+    Callable<String> callableTask = () -> {
+        Thread.sleep(2000);
+        return "Hello from Callable!";
+    };
+
+    // FutureTask를 사용하여 Callable 감싸기
+    FutureTask<String> futureTask = new FutureTask<>(callableTask);
+
+    // ExecutorService를 사용하여 FutureTask 실행
+    ExecutorService executorService = Executors.newSingleThreadExecutor();
+    executorService.execute(futureTask);
+
+    // FutureTask 결과 가져오기
+    try {
+        System.out.println("FutureTask 결과: " + futureTask.get());
+    } catch (InterruptedException | ExecutionException e) {
+        e.printStackTrace();
+    } finally {
+        executorService.shutdown();
+    }
+}  
+```
+- Runnable 및 Callable 인터페이스 구현:
+    - FutureTask는 Runnable 인터페이스와 Callable 인터페이스를 모두 구현합니다. 따라서 실행 가능한 작업을 표현할 수 있으며, 비동기적으로 결과를 반환할 수 있습니다.
+- 작업의 상태 관리:
+    - FutureTask는 작업의 상태를 관리합니다. 작업이 실행되었는지, 완료되었는지, 취소되었는지 등의 상태를 추적할 수 있습니다.
+    - ```java
+      private volatile int state; // 작업 상태 변수
+      private static final int NEW          = 0; //작업 시작
+      private static final int COMPLETING   = 1; // 작업 진행 중
+      private static final int NORMAL       = 2; // 작업 완료
+      private static final int EXCEPTIONAL  = 3; // 예외 발생
+      private static final int CANCELLED    = 4; // 작업 취소
+      private static final int INTERRUPTING = 5; // 인트럽트 중
+      private static final int INTERRUPTED  = 6; // 인트럽트 됨
+    - 상태 변화
+      - 정상 완료 : NEW > COMPLETING
+      - 예외 발생 : NEW > COMPLETING > EXCEPTIONAL
+      - 작업 취소 : NEW > COMPLETING > INTERRUPTED // 작업 취소 인자 true
+      - 작업 취소 : NEW > CANCELLED // 작업 취소 인자 false
+- 결과 저장:
+    - 작업이 완료되면 그 결과를 저장하고, 필요할 때 이 결과를 가져올 수 있습니다.
+- 동기화 메커니즘:
+    - FutureTask는 동기화 메커니즘을 사용하여 여러 스레드에서 안전하게 결과를 가져오거나 작업을 취소할 수 있습니다.
+
+### 내부 구조
+FutureTask의 내부 구조는 다음과 같습니다:
+
+- state:
+    - 작업의 현재 상태를 나타내는 내부 변수입니다. 작업이 실행 중인지, 완료되었는지, 취소되었는지를 추적합니다.
+- callable:
+    - 실행할 실제 작업(Callable 또는 Runnable)을 감싸는 내부 변수입니다.
+- outcome:
+    - 작업의 결과 또는 예외를 저장하는 내부 변수입니다.
+- runner:
+    - 작업을 실행하는 스레드를 나타내는 내부 변수입니다.
+
+FutureTask는 비동기 작업의 실행과 결과 관리를 위한 강력한 도구로, 여러 스레드에서 작업을 안전하게 관리할 수 있도록 합니다. 이를 통해 복잡한 비동기 작업을 보다 쉽게 처리할 수 있습니다.
+
