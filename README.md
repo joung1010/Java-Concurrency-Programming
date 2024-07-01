@@ -5011,3 +5011,131 @@ Executor Framework의 이점은 다음과 같습니다:
 - 스레드 관리의 복잡성이 감소합니다.
 - 자원 사용이 최적화되고 성능이 향상됩니다.
 - 코드의 가독성과 유지보수성이 향상됩니다.
+  
+## Runnable 과 Callable
+
+## **@Functional Interface**
+
+Java에서 Functional Interface는 람다 표현식의 대상이 되는 인터페이스로, 오직 하나의 추상 메소드를 가집니다. 이러한 특성 때문에 종종 Single Abstract Method (SAM) 인터페이스라고도 불립니다.   
+  
+Java 8 이후로 함수형 프로그래밍 패러다임을 지원하기 위해 도입되었으며, **`@FunctionalInterface`** 어노테이션을 사용하여 명시적으로 선언됩니다. 이 어노테이션은 인터페이스가 함수형 인터페이스의 요구 사항을 충족하는지 컴파일 시점에 검사하는 데 사용됩니다.
+  
+
+함수형 인터페이스는 일반적으로 간결하고 특정한 연산을 수행하는 작은 코드 조각을 구현하는 데 사용됩니다. 이들은 종종 고차 함수(higher-order functions)의 인자로 사용되거나 결과로 반환됩니다.  
+  
+예를 들어, 자바 API에는 여러 내장 함수형 인터페이스가 있으며,  가장 대표적인 것은 **`Consumer`**, **`Supplier`**, **`Function`** 및 **`Predicate`** 등이 있습니다.
+
+## Runnable 과  Callable
+
+Java에서 `Runnable`과 **`Callable`** 인터페이스는 스레드 또는 스레드 풀에서 실행할 수 있는 태스크를 정의하기 위해 사용됩니다. 두 인터페이스 모두 병렬 처리나 비동기 작업에 사용되며,  
+  
+`ExecutorService`와 같은 고급 스레드 관리 도구와 함께 사용되곤 합니다.
+
+### **Runnable 인터페이스**
+
+**`Runnable`** 인터페이스는 다음과 같이 정의됩니다:
+
+```java
+@FunctionalInterface
+public interface Runnable {
+    // 결과를 리턴 하거나 예외를 던질 수 없다.
+    void run();
+}
+
+```
+
+- **메소드 `run()`**: 이 메소드는 반환 값이 없으며 (**`void`**), 예외를 던지지 않습니다. 실제로 작업을 수행하는 로직을 포함하며, 작업이 완료되면 메소드가 종료됩니다.
+
+### 사용 예시
+
+**Runnable 사용 예시:**
+
+```java
+public static void main(String[] args) {
+    Runnable runnable = () -> System.out.println("Runnable is running");
+    Thread thread = new Thread(runnable);
+    thread.start();
+}
+
+```
+
+### **Callable 인터페이스**
+
+java에서 **`Callable`** 인터페이스는 실행할 작업을 나타내며, **`Runnable`** 인터페이스와 유사하지만 몇 가지 중요한 차이가 있습니다.  
+  
+`Callable`은 결과를 반환하고, `작업 수행 중 발생할 수 있는 예외를 처리할 수 있습니다.` 이러한 특징은 `Callable`을 통해 보다 복잡한 연산을 수행하고 그 결과를 외부에서 활용할 수 있게 해줍니다.
+
+**`Callable`** 인터페이스는 다음과 같이 정의됩니다:
+
+```java
+@FunctionalInterface
+public interface Callable<V> {
+    // 결과를 리턴 하거나 예외를 던질 수 있다.
+    V call() throws Exception;
+}
+
+```
+
+- **메소드 `call()`**: 이 메소드는 작업의 실행 결과를 반환하는 **`V`** 타입의 값을 리턴합니다. 또한, 작업 중 발생할 수 있는 예외를 던질 수 있습니다 (**`throws Exception`**).
+
+### **Future 인터페이스**
+
+**`Future`** 인터페이스는 **비동기 연산의 결과**를 나타냅니다. **`Callable`** 태스크가 실행되면, `ExecutorService`는 즉시 **`Future`** 객체를 반환하고, 태스크는 비동기적으로 수행됩니다. `Future`는 연산이 완료될 때까지 기다렸다가 결과를 검색하거나, 연산이 완료되었는지 여부를 확인하거나, 연산을 취소할 수 있는 방법을 제공합니다.
+
+**주요 메소드**:
+
+- **`boolean cancel(boolean mayInterruptIfRunning)`**: 작업이 완료되기 전에 작업을 취소하려고 시도합니다.
+- **`boolean isCancelled()`**: 작업이 취소되었는지 여부를 반환합니다.
+- **`boolean isDone()`**: 작업이 완료되었는지 여부를 반환합니다.
+- **`V get()`**: 작업이 완료될 때까지 대기한 후 결과를 반환합니다.
+- **`V get(long timeout, TimeUnit unit)`**: 작업이 완료되거나 지정된 시간이 지나거나 현재 스레드가 인터럽트되면 작업 결과 또는 예외를 반환합니다.
+
+### **사용 예시**
+
+**Callable & Future 사용 예시**:
+
+```java
+import java.util.concurrent.*;
+
+public class CallableFutureExample {
+    public static void main(String[] args) throws ExecutionException, InterruptedException, TimeoutException {
+        ExecutorService executor = Executors.newFixedThreadPool(1);
+
+        Callable<Integer> callable = () -> {
+            TimeUnit.SECONDS.sleep(2); // 시뮬레이션을 위한 2초 지연
+            return 123;
+        };
+
+        Future<Integer> future = executor.submit(callable);
+
+        // 미래 결과를 가져옵니다. 필요하다면 이 시점에서 작업 완료를 기다립니다.
+        Integer result = future.get();  // 작업이 완료될 때까지 블록됩니다.
+        System.out.println("Result: " + result);
+
+        executor.shutdown();
+    }
+}
+
+```
+
+이 예제에서는 **`Callable`** 태스크를 `ExecutorService`에 제출하고, 결과를 **`Future`** 객체를 통해 얻습니다. **`get()`** 메소드는 필요한 경우 작업이 완료될 때까지 현재 스레드를 차단하며, 작업 결과를 반환합니다.
+
+### **주요 용도**
+
+- **비동기 계산**: `Callable`과 `Future`는 계산 결과를 나중에 필요할 때 사용할 수 있도록 하며, 메인 스레드가 다른 작업을 계속 처리할 수 있도록 합니다.
+- **시간이 많이 걸리는 작업 관리**: 긴 작업을 비동기적으로 실행하고, 결과가 준비되면 알림을 받거나 결과를 검색할 수 있습니다.
+- **멀티스레드 환경에서의 예외 처리**: `Callable`은 `Exception`을 던질 수 있어, 멀티스레드 환경에서 예외를 적절하게 처리할 수 있습니다.
+
+### **Runnable과 Callable의 차이점**
+
+다음은 `Runnable`과 `Callable`의 주요 차이점을 정리한 표입니다:
+
+| 특성 | Runnable | Callable |
+| --- | --- | --- |
+| 반환 값 | 반환 값 없음 (void) | 반환 값 있음 (V) |
+| 예외 처리 | 예외를 선언적으로 던지지 않음 | 선언적으로 예외를 던질 수 있음 (throws Exception) |
+| 메소드 | run() | call() |
+| 사용 시나리오 | 단순한 작업을 실행하고 결과를 반환할 필요가 없는 경우 | 결과를 반환하거나 예외 처리가 필요한 경우 |
+| 기능적 인터페이스 | @FunctionalInterface | @FunctionalInterface |
+
+  
