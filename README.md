@@ -5138,4 +5138,133 @@ public class CallableFutureExample {
 | 사용 시나리오 | 단순한 작업을 실행하고 결과를 반환할 필요가 없는 경우 | 결과를 반환하거나 예외 처리가 필요한 경우 |
 | 기능적 인터페이스 | @FunctionalInterface | @FunctionalInterface |
 
+
+## Future 과 Callback
+
+### Future
+
+앞서 설명을 했지만 **`Future`** 인터페이스는 비동기 작업의 결과를 나타내는데 사용됩니다. `Future`는 작업이 완료되기를 기다리고, 완료되면 결과를 가져오거나, 작업 실행 중에 발생할 수 있는 예외를 처리할 수 있게 해줍니다.
+
+**사용 시나리오**:
+
+- 결과를 기다리면서 다른 작업을 동시에 수행할 수 있도록 비동기 작업을 관리하고 싶을 때 사용됩니다.
+- 긴 작업을 서브 스레드에서 실행시키고, 그 결과를 메인 스레드에서 활용하고자 할 때 유용합니다.
+
+### **Callback**
+
+Callback은 비동기 프로그래밍에서 사용되는 기술로, 특정 코드 블록(함수 또는 메소드)이 작업 완료 시 호출됩니다. Callback을 사용하면 비동기 작업이 완료될 때 수행할 작업을 지정할 수 있으며, 이는 작업의 결과를 처리하거나 다음 작업을 연쇄적으로 시작하는 데 사용됩니다.
+
+> **Callback의 개념**
+> Callback은 프로그래밍에서 사용되는 중요한 개념으로, **특정 작업이나 이벤트가 완료될 때 실행될 함수나 코드 블록을 의미**합니다.
+
+Callback을 사용하는 주된 이유는 **비동기 작업을 처리**하고, **결과나 상태 변경에 대응하는 코드를 구성**하기 위해서입니다. Callback은 프로그램의 흐름을 비동기적으로 만들어, 주 스레드가 멈추지 않고 다른 작업을 계속 수행할 수 있게 합니다.
+>
+>
+>
+> **Callback의 기본 원리**
+>
+> Callback은 함수를 다른 함수의 인자로 전달하는 방식으로 사용됩니다. 이렇게 전달된 함수는 외부의 이벤트 처리나 비동기 요청의 결과 등을 처리하는 데 호출됩니다. 이러한 방식은 주로 이벤트 리스너, 시간 초과, 네트워크 요청, 파일 입출력 등과 같이 비동기적으로 발생하는 다양한 시스템 이벤트나 상태에서 유용합니다.
+>
+
+**구현 방식**:
+
+- Java에서는 직접적으로 Callback 인터페이스가 존재하지 않으나, 개발자가 인터페이스를 정의하여 사용할 수 있습니다.
+- 일반적으로는 인터페이스를 정의하고, 해당 인터페이스의 메소드를 구현하여 비동기 작업이 완료되었을 때 호출되게 합니다.
+
+**예제**:
+
+```java
+
+interface Callback {
+    void onComplete(String result);
+    void onError(Exception e);
+}
+
+public class AsyncService {
+    public void doWork(Callback callback) {
+        new Thread(() -> {
+            try {
+                // 시간이 많이 걸리는 작업 수행
+                String result = "Completed";
+                callback.onComplete(result);
+            } catch (Exception e) {
+                callback.onError(e);
+            }
+        }).start();
+    }
+}
+
+```
+
+- 비동기 작업의 결과를 특정 시점에 처리하고 싶을 때, 또는 여러 단계의 비동기 작업을 연결하고 싶을 때 사용됩니다.
+- 네트워크 요청, 파일 I/O, 긴 계산 작업 완료 후 UI 업데이트 등의 상황에서 활용됩니다.
+
+### 차이점
+
+| 특징 | Future | Callback |
+| --- | --- | --- |
+| 작업 완료의 확인 | 작업 완료를 명시적으로 확인해야 함 (isDone()) | 작업 완료 시 자동으로 함수가 호출됨 |
+| 결과 처리 | get() 메소드를 통해 결과를 동기적으로 검색 | 작업 완료 시 호출되는 함수를 통해 결과를 비동기적으로 처리 |
+| 작업 중단 | 작업을 취소할 수 있는 기능 제공 (cancel()) | 일반적으로 취소 메커니즘이 명시적으로 제공되지 않음 |
+| 오류 처리 | get() 호출 시 발생한 예외를 ExecutionException으로 캡처 | onError 메소드 등을 통해 예외를 직접 처리 |
+| 응답성 | 작업 완료를 기다리는 동안 블로킹 될 수 있음 | 비동기적으로 이벤트 처리, 논블로킹 |
+| 용도 | 결과가 필요한 경우, 결과를 기다리는 동안 다른 작업 수행 가능 | 비동기 흐름 제어, 여러 단계의 비동기 작업을 연결할 때 유리 |
+
+### 두 패턴이 필요한 이유
+- 비동기 작업에서 스레드 간 결과를 받을 방법이 필요하다.
+- 비동기 작업은 스레드 간 **실행의 흐름이 독립적**이기 때문에 비동기 작업의 완료 시점에 결과를 얻을 수 있어야 한다.
+
+### **Future의 구조**
+
+**`Future`** 인터페이스는 다음과 같은 주요 메소드를 제공합니다:
+
+1. **boolean cancel(boolean mayInterruptIfRunning)**
+    - 이 메소드는 실행 중인 작업을 취소하려고 시도합니다. **`mayInterruptIfRunning`** 파라미터가 `true`이면 진행 중인 스레드를 중단시킬 수 있습니다. 작업이 취소되면 `true`를, 그렇지 않으면 `false`를 반환합니다.
+2. **boolean isCancelled()**
+    - 작업이 취소되었는지 여부를 반환합니다. 작업이 취소되었다면 `true`를 반환합니다.
+3. **boolean isDone()**
+    - 작업이 완료되었는지 여부를 확인합니다. 작업이 완료되었거나 예외가 발생했거나, 작업이 취소되었으면 `true`를 반환합니다.
+4. **V get()**
+    - 계산된 결과를 반환받습니다. 결과가 준비될 때까지 호출 스레드가 블록됩니다.
+5. **V get(long timeout, TimeUnit unit)**
+    - 지정된 시간 내에 결과를 반환받습니다. 지정된 시간이 초과되면 `TimeoutException`을 던집니다.
+
+### **원리**
+
+`Future`는 다음과 같은 원리로 동작합니다:
+
+- **작업 제출**: `ExecutorService`를 통해 **`Callable`** 또는 **`Runnable`** 작업이 제출됩니다. 이때 `ExecutorService`는 작업을 수행할 스레드에 할당하고, 해당 작업을 나타내는 **`Future`** 객체를 반환합니다.
+- **작업 실행**: 작업은 별도의 스레드에서 비동기적으로 실행됩니다. 이 실행은 `ExecutorService`에 의해 관리되는 스레드 풀 내에서 이루어질 수 있습니다.
+- **결과 대기 및 검색**: **`Future.get()`** 메소드를 호출하여 작업 결과를 검색할 수 있습니다. 이 메소드는 결과가 준비될 때까지 호출 스레드를 블록합니다. 결과가 이미 준비되어 있으면 즉시 반환됩니다.
+- **작업 취소**: **`Future.cancel()`** 메소드를 통해 실행 중이거나 대기 중인 작업을 취소할 수 있습니다. 작업이 성공적으로 취소되면 더 이상 해당 작업의 결과를 검색할 수 없습니다.
+
+### **사용 예제**
+
+```java
+public static void main(String[] args) {
+    ExecutorService executor = Executors.newCachedThreadPool();
+    Callable<String> task = () -> {
+        TimeUnit.SECONDS.sleep(2); // 시뮬레이션을 위한 지연
+        return "Result of Task";
+    };
+    Future<String> future = executor.submit(task); // 비동기
+
+    try {
+        String result = future.get(3, TimeUnit.SECONDS); // 3초 안에 결과를 기다립니다.
+        System.out.println("Task completed: " + result);
+    } catch (TimeoutException e) {
+        System.err.println("Task did not complete within the time limit.");
+    } catch (InterruptedException | ExecutionException e) {
+        System.err.println("Task encountered an error: " + e.getMessage());
+    } finally {
+        executor.shutdown();
+    }
+}
+
+```
+
+이 예제에서는 `Callable`을 통해 반환값이 있는 작업을 `ExecutorService`에 제출하고, `Future`를 사용하여 결과를 비동기적으로 검색합니다.  
   
+**`get()`** 메소드를 사용하여 작업 완료를 최대 3초까지 기다리고, 그 시간 안에 작업이 완료되면 결과를 출력합니다. 이때 결과값이 `Future`에 전달되지 않았다면 내부적으로 **wait()** 을 통해 결과값을 얻기까지 메인 스레드가 대기한다.(결과 값이 전달 되면 **notify()** 호출해서 메인 스레드를 깨움)
+
+`Future`는 Java에서 비동기 작업을 관리하고 결과를 효율적으로 처리하는 강력한 메커니즘을 제공합니다.
