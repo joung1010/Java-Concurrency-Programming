@@ -10,7 +10,7 @@ import java.util.concurrent.*;
  * @since 2024-07-02
  */
 public class FutureGetExam {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         ExecutorService executorService = Executors.newFixedThreadPool(1);
 
         Callable<Integer> callable = () -> {
@@ -23,7 +23,10 @@ public class FutureGetExam {
 
         Future<Integer> future = executorService.submit(callable);
 
-
+        while (!future.isDone()) {
+            System.out.println("작업 완료를 기다리는 중...");
+            Thread.sleep(500);
+        }
         try {
             Integer result = future.get();
             System.out.println("result = " + result);
