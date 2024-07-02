@@ -5383,3 +5383,213 @@ FutureTask의 내부 구조는 다음과 같습니다:
 
 FutureTask는 비동기 작업의 실행과 결과 관리를 위한 강력한 도구로, 여러 스레드에서 작업을 안전하게 관리할 수 있도록 합니다. 이를 통해 복잡한 비동기 작업을 보다 쉽게 처리할 수 있습니다.
 
+```java
+   public static void main(String[] args) {
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+        Callable<Integer> callable = () -> {
+            System.out.println("비동기 작업 시작..");
+            Thread.sleep(2000);
+            System.out.println("비동기 작업 종료..");
+
+            return 30;
+        };
+
+        Future<Integer> future = executorService.submit(callable);
+        
+
+        try {
+            Integer result = future.get();
+            System.out.println("result = " + result);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
+        }finally {
+            executorService.shutdown();
+        }
+    }
+```
+위 코드는 어떻게 동작 하는지 알아보자  
+```java
+executorService.submit(callable);
+```
+이 코드 내부로 타고 가보면 `AbstractExecutorService` 클레스 안에 submit 메서드를 호출하게 된다.  
+```java
+
+    public <T> Future<T> submit(Callable<T> task) {
+        if (task == null) throw new NullPointerException();
+        RunnableFuture<T> ftask = newTaskFor(task); 
+        execute(ftask);
+        return ftask;
+    }
+```
+이 코드를 확인 해보면 `newTaskFor(task)` 메서드의 진자로 Callabe task 값을 전달해주고 return 값으로 RunnableFuture 인터페이스를 반환 받는 것을 확인할 수 있다.  
+newTaskFor:  FutureTask 객체를 return 한다.
+```java
+    protected <T> RunnableFuture<T> newTaskFor(Callable<T> callable) {
+        return new FutureTask<T>(callable);
+    }
+```
+앞에서 확인 했듯이 FutureTask 객체는 내부적으로 상태값을 가지고 실행을 제어한다.  
+이렇게 생성된 FutureTask 객체를 `execute(ftask)` 메서드에 전달하고 바로 FutureTask를 return 하게된다.  
+이때 RunnableFuture 인터페이스는  Runnable, Future<V> 를 상속 받는 인터페이스임을 확인할 수 있다.
+```java
+public interface RunnableFuture<V> extends Runnable, Future<V> {
+    /**
+     * Sets this Future to the result of its computation
+     * unless it has been cancelled.
+     */
+    void run();
+}
+```  
+이렇게 바로 return 한 FutureTask 객체를 우리는 비동기적으로 받아 작업을 처리하게 된다.  
+비동기 작업을 처리하는 `execute` 메서드는 `Executor` 인터페이스를 상속 받아 구현하게 되어있고 우리는 앞에서  
+```java
+Executors.newFixedThreadPool(1);
+```
+Executors 의 newFixedThreadPool 메서드를 통해 ExecutorService 를 return 받았다.  
+```
+    public static ExecutorService newFixedThreadPool(int nThreads) {
+        return new ThreadPoolExecutor(nThreads, nThreads,
+                                      0L, TimeUnit.MILLISECONDS,
+                                      new LinkedBlockingQueue<Runnable>());
+    }
+```
+`ThreadPoolExecutor` 클레스에 들어가 execute 메서드의 구현체를 확인해 보자  
+```java
+    public void execute(Runnable command) {
+        if (command == null)
+            throw new NullPointerException();
+        /*
+         * Proceed in 3 steps:
+         *
+         * 1. If fewer than corePoolSize threads are running, try to
+         * start a new thread with the given command as its first
+         * task.  The call to addWorker atomically checks runState and
+         * workerCount, and so prevents false alarms that would add
+         * threads when it shouldn't, by returning false.
+         *
+         * 2. If a task can be successfully queued, then we still need
+         * to double-check whether we should have added a thread
+         * (because existing ones died since last checking) or that
+         * the pool shut down since entry into this method. So we
+         * recheck state and if necessary roll back the enqueuing if
+         * stopped, or start a new thread if there are none.
+         *
+         * 3. If we cannot queue task, then we try to add a new
+         * thread.  If it fails, we know we are shut down or saturated
+         * and so reject the task.
+         */
+        int c = ctl.get();
+        if (workerCountOf(c) < corePoolSize) {
+            if (addWorker(command, true))
+                return;
+            c = ctl.get();
+        }
+        if (isRunning(c) && workQueue.offer(command)) {
+            int recheck = ctl.get();
+            if (! isRunning(recheck) && remove(command))
+                reject(command);
+            else if (workerCountOf(recheck) == 0)
+                addWorker(null, false);
+        }
+        else if (!addWorker(command, false))
+            reject(command);
+    }
+
+```
+여기서 `addWorker` 메서드 에서 우리가 전달한 Runnable task 값을 비동기적으로 Worker라는 클레스를 생성하면서 새로운 스레드를 생성하게된다.(스레드풀에서  
+```java
+// addWorker 내부 로직 중 일부
+boolean workerStarted = false;
+boolean workerAdded = false;
+Worker w = null;
+        try {
+w = new Worker(firstTask);
+final Thread t = w.thread;
+            if (t != null) {
+final ReentrantLock mainLock = this.mainLock;
+                mainLock.lock();
+```
+이 Worker 클레스는 Runnable 구현한 클레스로 생성자로 futureTask 를 받고 있다.
+```java
+    private final class Worker
+        extends AbstractQueuedSynchronizer
+        implements Runnable
+    {
+        Worker(Runnable firstTask) {
+            setState(-1); // inhibit interrupts until runWorker
+            this.firstTask = firstTask;
+            this.thread = getThreadFactory().newThread(this);
+        }
+    }
+```
+이렇게 비동기적으로 FutureTask 객체를 return 한다음에 main 스레드가 아닌 스레드 풀에서 생성한 스레드가 비동기 적으로 Worker 클레스의 run 메서드를 호출한다.  
+![img.png](src/resources/static/img/img.png)  
+```java
+     public void run() {
+            runWorker(this);
+        }
+```  
+```java
+final void runWorker(Worker w) {
+    ...
+    task.run(); // Worker 클레스 안에 있는 futureTask
+}
+```
+runWorker 에서 실행한 run 메서드는 결국 FutureTask 안에 있는 run 메서드를 호출하므로(우리가 전달한 구현체가 FutureTask)  
+```java
+public void run() {
+        if (state != NEW ||
+            !RUNNER.compareAndSet(this, null, Thread.currentThread()))
+            return;
+        try {
+            Callable<V> c = callable;
+            if (c != null && state == NEW) {
+                V result;
+                boolean ran;
+                try {
+                    result = c.call();
+                    ran = true;
+                } catch (Throwable ex) {
+                    result = null;
+                    ran = false;
+                    setException(ex);
+                }
+                if (ran)
+                    set(result);
+            }
+        } finally {
+            // runner must be non-null until state is settled to
+            // prevent concurrent calls to run()
+            runner = null;
+            // state must be re-read after nulling runner to prevent
+            // leaked interrupts
+            int s = state;
+            if (s >= INTERRUPTING)
+                handlePossibleCancellationInterrupt(s);
+        }
+    }
+```
+FutureTask 클레스는 내부적으로 상태값을 가지고 task를 제어한다.  
+정상적으로 로직을 마무리하게 되면 **set** 메서드를 통해서 상태값을 NEW 에서 COMPLETING 로 변경하고 outcome 에 결과값을 전달하고 상태값을 NORAML 변경한다.  
+```java
+    protected void set(V v) {
+        if (STATE.compareAndSet(this, NEW, COMPLETING)) {
+            outcome = v;
+            STATE.setRelease(this, NORMAL); // final state
+            finishCompletion();
+        }
+    }
+```  
+이렇게 비동기 작업을 수행하고 마지막으로 get 메서드를 호출하게 되면  
+```java
+    public V get() throws InterruptedException, ExecutionException {
+        int s = state;
+        if (s <= COMPLETING)
+            s = awaitDone(false, 0L); // 값을 전달 받을때 까지 대기
+        return report(s);
+    }
+```
+내부 상태값을 확인하고 완료되지 않았다면 완료까지 대기했다가 그값을 return 하게 된다.
