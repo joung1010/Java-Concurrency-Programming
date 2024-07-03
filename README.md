@@ -5593,3 +5593,60 @@ FutureTask 클레스는 내부적으로 상태값을 가지고 task를 제어한
     }
 ```
 내부 상태값을 확인하고 완료되지 않았다면 완료까지 대기했다가 그값을 return 하게 된다.
+  
+## 스레드 풀 실행 및 관리 ExecutorService  
+### 실행을 제어하는 2가지 메서드
+비동기 작업을 실행하고 관리하기 위한 두가지 메서드를 제공  
+- void execute(Runnable r) : 작업 제출하면 작업을 **실행하고 종료**
+- Future submit(Callable c) : 작업을 제출하면 **실행함과 동시에 Future 반환**(결과값을 포함하고 있음).
+
+| 특징 | submit() | execute() |
+| --- | --- | --- |
+| 반환 타입 | Future 객체 | void |
+| 예외 처리 | 호출한 스레드에서 예외 발생 | 실행된 스레드에서 예외 발생 |
+| 반환 값 | 작업의 결과 또는 예외가 포함된 Future 반환 | 반환 값 없음 |
+| 블로킹 여부 | 비블로킹 | 비블로킹 |
+| 사용 용도 | 결과를 반환하거나 예외를 처리할 필요가 있는 작업 | 결과가 필요 없고 예외를 별도로 처리하지 않는 작업 |
+
+다음은 `submit`과 `execute` 메서드를 사용하는 기본 구현 코드입니다.
+
+```java
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+public class ExecutorServiceExample {
+    public static void main(String[] args) {
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+
+        // submit 사용 예제
+        Callable<String> callableTask = () -> {
+            Thread.sleep(1000);
+            return "Callable Task's Result";
+        };
+        Future<String> future = executorService.submit(callableTask);
+        try {
+            String result = future.get(); // 결과를 기다림
+            System.out.println("submit 결과: " + result);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // execute 사용 예제
+        Runnable runnableTask = () -> {
+            try {
+                Thread.sleep(1000);
+                System.out.println("Runnable Task 실행 완료");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        };
+        executorService.execute(runnableTask);
+
+        executorService.shutdown();
+    }
+}
+
+```
+
