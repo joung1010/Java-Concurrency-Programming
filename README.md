@@ -5650,3 +5650,182 @@ public class ExecutorServiceExample {
 
 ```
 
+### **스레드 풀 중단 및 종료 방법**
+
+### **1. `shutdown()`**
+
+**`shutdown()`** 메소드는 스레드 풀의 새로운 작업 수락을 중단하고, 이미 제출된 모든 작업이 완료된 후에 스레드 풀의 스레드들을 종료합니다. 이 메소드는 즉시 반환되며, 작업이 실제로 완료되는 것을 기다리지 않습니다. 실행중인 스레드를 강제로 인터럽트 하지 않기 때문에 InterruptedExetion 예외 구문을 작성할 필요 없다.
+
+- **사용 예제**:
+
+```java
+public static void main(String[] args) {
+    ExecutorService executor = Executors.newFixedThreadPool(4);
+// 여기에 작업 제출
+    executor.shutdown();
+}
+
+```
+
+
+### **2. `shutdownNow()`**
+
+**`shutdownNow()`** 메소드는 스레드 풀의 새로운 작업 수락을 즉시 중단하고, 실행 중인 모든 작업을 시도할 수 있는 대로 중단하며, 대기 중인 작업 목록을 반환합니다. 이 메소드는 가능한 한 빨리 스레드 풀을 종료하려고 할 때 사용됩니다. 단, 실행중인 스레드를 강제로 인터럽트 하지만 해당 작업이 인터럽트에 응답하는 작업이 아닌경우 작업 종류를 보장하지 않는다.
+
+- **사용 예제**:
+
+```java
+public static void main(String[] args) {
+    ExecutorService executor = Executors.newFixedThreadPool(4);
+// 여기에 작업 제출
+    List<Runnable> notExecutedTasks = executor.shutdownNow();
+
+}
+```
+
+
+
+### **중단 및 종료 과정의 중요성**
+
+- **리소스 관리**: 열린 스레드를 관리하지 않으면 시스템의 성능에 영향을 줄 수 있습니다. 스레드는 운영 체제 리소스를 사용하므로 적절한 시점에 이를 해제해야 합니다.
+- **애플리케이션의 안정성**: 스레드 풀이 제대로 종료되지 않으면 애플리케이션이 완전히 종료되지 않는 문제가 발생할 수 있습니다.
+- **데이터 무결성**: 실행 중인 작업이 갑자기 중단되면 예상치 못한 결과를 초래할 수 있으므로, 가능하다면 정상적인 종료를 기다리거나 제어된 방식으로 중단되어야 합니다.
+
+### 주의사항
+
+`ExecutorService`의 **`shutdownNow()`** 메소드를 사용할 때는 여러 가지 주의사항을 고려해야 합니다. 잘못 관리되면 예기치 않은 문제나 데이터 손실이 발생할 수 있습니다.
+
+**1. 작업의 완료성 보장**
+
+- `shutdownNow()`는 스레드에 `Thread.interrupt()`를 호출하여 현재 진행 중인 작업을 중단하려고 시도합니다. 하지만 모든 작업이 인터럽트를 적절히 처리하는 것은 아닙니다. 작업 코드가 인터럽트를 적절히 처리하고 있지 않다면, **`shutdownNow()`** 호출 후에도 작업이 계속 실행될 수 있습니다.
+- 중요한 데이터를 처리하는 작업을 강제로 중단할 때는 데이터 일관성과 완전성이 손상될 수 있으므로, 작업이 중단 가능한지와 중단 시 어떤 상태로 남는지를 정확히 이해해야 합니다.
+
+**2. 인터럽트 처리**
+
+- 작업 코드 내에서 `InterruptedException`이 발생했을 때 이를 적절히 처리하는 것이 중요합니다. 인터럽트 예외를 무시하면 스레드가 중지되지 않고 계속 실행될 수 있습니다.
+- 작업이 인터럽트를 받았을 때 적절한 정리(clean-up) 작업을 수행하고 안전하게 종료되도록 해야 합니다.
+
+**3. 리소스 누수 방지**
+
+- 작업 중에 열린 파일이나 네트워크 연결 등의 리소스는 작업이 중단되더라도 반드시 정리되어야 합니다. 작업 중단 시 리소스 정리 로직을 실행하지 않으면 리소스 누수가 발생할 수 있습니다.
+
+**4. 응답성 보장**
+
+- `shutdownNow()`는 가능한 한 빨리 스레드 풀을 종료시키려 하므로, 일부 처리가 완료되지 않고 종료될 수 있습니다. 시스템의 응답성을 유지하려면 중단 시점을 신중하게 결정하고, 사용자나 다른 시스템 컴포넌트에 적절한 피드백을 제공해야 합니다.
+
+**5. 예외 처리와 로깅**
+
+- 작업 중단 과정에서 발생할 수 있는 예외를 적절히 처리하고, 필요한 경우 로깅을 통해 문제를 추적할 수 있도록 해야 합니다. 이는 문제 발생 시 빠른 진단과 해결을 돕습니다.
+
+## 종료 상태 확인
+
+**`ExecutorService`** 인터페이스는 작업 실행을 관리하고 스레드 풀을 제어하는 데 사용되는 여러 메소드를 제공합니다.
+
+### 1. **`isShutdown()`**
+
+- **기능**: **`isShutdown()`** 메소드는 `ExecutorService`가 종료(shutdown) 절차를 시작했는지 여부를 확인합니다.
+- **반환 값**: 이 메소드는 종료 절차가 시작되면 `true`를, 그렇지 않으면 `false`를 반환합니다.
+- **사용 시점**: **`shutdown()`** 또는 **`shutdownNow()`** 메소드가 호출된 후, 서비스가 종료 절차에 들어갔는지 확인할 때 사용합니다.
+
+### **2.`isTerminated()`**
+
+- **기능**: **`isTerminated()`** 메소드는 `ExecutorService`의 종료 절차가 완전히 완료되었는지를 확인합니다.
+- **반환 값**: 모든 작업이 완료되고, 연관된 리소스가 정리된 후에 `true`를 반환합니다. 만약 종료 절차가 아직 완료되지 않았다면 `false`를 반환합니다.
+- **사용 시점**: **`shutdown()`** 호출 후 모든 작업이 완료되었는지 확인할 때 사용하며, **`awaitTermination()`** 메소드와 함께 종종 사용됩니다.
+
+### 3. **`awaitTermination(long timeout, TimeUnit unit)`**
+
+- **기능**: **`awaitTermination()`** 메소드는 호출하는 스레드가 `ExecutorService`가 완전히 종료될 때까지, 또는 제공된 타임아웃 시간이 경과할 때까지 대기하도록 합니다.
+- **반환 값**: 서비스가 종료 절차를 완료하면 `true`를, 타임아웃 시간이 경과하면 `false`를 반환합니다.
+- **사용 시점**: 일반적으로 `shutdown()`이나 **`shutdownNow()`** 메소드 호출 후에 사용하여, 모든 작업이 완료되기를 기다릴 때 사용됩니다.
+
+
+### **사용 예제**
+
+```java
+public static void main(String[] args) {
+    ExecutorService executor = Executors.newFixedThreadPool(4);
+
+// 작업을 제출합니다.
+    executor.execute(() -> {
+        try {
+            Thread.sleep(2000);
+            System.out.println("Task completed");
+        } catch (InterruptedException e) {
+            System.out.println("Task interrupted");
+        }
+    });
+
+// 스레드 풀 종료 시작
+    executor.shutdown();
+
+// 종료 확인
+    if (executor.isShutdown()) {
+        System.out.println("Shutdown has been initiated");
+    }
+
+    try {
+        // 모든 작업이 완료될 때까지 5초간 대기
+        if (executor.awaitTermination(5, TimeUnit.SECONDS)) {
+            System.out.println("All tasks have finished");
+        } else {
+            System.out.println("Not all tasks finished before the timeout");
+        }
+    } catch (InterruptedException e) {
+        executor.shutdownNow();
+    }
+
+// 최종적으로 스레드 풀이 종료되었는지 확인
+    if (executor.isTerminated()) {
+        System.out.println("All tasks are terminated");
+    } else {
+        System.out.println("Some tasks are still running");
+    }
+}
+
+```
+
+이 예제는 `ExecutorService`의 종료 절차를 시작하고, 종료 여부를 확인하며, 필요한 경우 종료를 기다리는 과정을 보여줍니다. 이러한 메소드들은 서비스의 정상적인 종료와 리소스의 올바른 해제를 보장하는 데 필수적입니다.
+
+## 종료 및 대기 흐름도
+
+1. **작업 제출**
+    - `ExecutorService`에 작업을 제출합니다 (예: **`execute`**, **`submit`**).
+2. **종료 시작 (`shutdown()`)**
+    - **`shutdown()`** 메소드를 호출하여 `ExecutorService`가 새로운 작업을 받지 않도록 합니다.
+    - 이미 제출된 작업은 계속 처리됩니다.
+3. **상태 확인 (`isShutdown()`)**
+    - **`isShutdown()`** 메소드를 사용하여 종료 절차가 시작되었는지 확인합니다.
+    - 이 메소드는 종료 절차가 시작되면 **`true`**를 반환합니다.
+4. **작업 완료 대기 (`awaitTermination()`)**
+    - **`awaitTermination()`** 메소드를 호출하여 스레드 풀의 모든 작업이 완료될 때까지 대기합니다.
+    - 지정된 시간 동안 모든 작업이 완료되면 `true`를 반환하고, 그렇지 않으면 `false`를 반환합니다.
+5. **완전한 종료 확인 (`isTerminated()`)**
+    - `isTerminated()`를 호출하여 `ExecutorService`가 완전히 종료되었는지 확인합니다.
+    - 모든 작업이 완료되면 `true`를 반환합니다.
+6. **긴급 종료 (`shutdownNow()`)**
+    - 필요한 경우 `shutdownNow()`를 호출하여 실행 중인 작업을 즉시 중단하고, 대기 중인 작업 목록을 반환받을 수 있습니다.
+    - 이 단계는 선택적이며, 일반적으로 정상적인 종료 과정 중에 필요한 작업 완료를 기다릴 수 없을 때 사용됩니다.
+
+```lua
++------------------+        +------------------+       +------------------+
+| 작업 제출        | -----> | 종료 시작        | ----> | 상태 확인        |
+| (submit, execute)|        | (shutdown())     |       | (isShutdown())   |
++------------------+        +------------------+       +------------------+
+                                                             |
+                                                             V
+                                                    +------------------+       +----------------------+
+                                                    | 작업 완료 대기    | ----> | 긴급 종료             |
+                                                    | (awaitTermination)|       | (shutdownNow())      |
+                                                    +------------------+       +----------------------+
+                                                             |
+                                                             V
+                                                    +------------------+
+                                                    | 완전한 종료 확인  |
+                                                    | (isTerminated()) |
+                                                    +------------------+
+
+```
+
+이 흐름도는 **`ExecutorService`** 종료 과정에서 각 단계의 목적과 흐름을 나타냅니다. `shutdown()`을 호출한 후에는 `awaitTermination()`을 사용하여 작업이 완료될 때까지 기다리는 것이 일반적인 절차입니다. 필요한 경우, 작업이 너무 오래 걸리거나 긴급한 상황에서는 **`shutdownNow()`**를 사용하여 스레드 풀을 즉시 종료할 수 있습니다. 이 과정을 통해 `ExecutorService`의 리소스를 안전하고 효율적으로 관리할 수 있습니다.
+
