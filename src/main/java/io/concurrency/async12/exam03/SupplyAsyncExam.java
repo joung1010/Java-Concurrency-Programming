@@ -18,12 +18,16 @@ public class SupplyAsyncExam {
         CompletableFuture<List<Integer>> future = CompletableFuture.supplyAsync(() -> {
             System.out.println(Thread.currentThread().getName() + "work async");
             return service.getData();
-        });
+        })/*.thenApplyAsync(r-> {
+
+        })
+                .thenAccept()*/
+                ;
 
         List<Integer> result = future.join();
         result.forEach(System.out::println);
 
-        System.out.println("동일 처리 로직을 스레드풀을 이용해서 구현");
+/*        System.out.println("동일 처리 로직을 스레드풀을 이용해서 구현");
         System.out.println("===========================================================================");
 
         ExecutorService executorService = Executors.newFixedThreadPool(1);
@@ -32,7 +36,7 @@ public class SupplyAsyncExam {
             return service.getData();
         });
         List<Integer> result2 = future2.get();
-        result2.forEach(System.out::println);
+        result2.forEach(System.out::println);*/
 
         System.out.println("main 스레드 종료!");
     }
