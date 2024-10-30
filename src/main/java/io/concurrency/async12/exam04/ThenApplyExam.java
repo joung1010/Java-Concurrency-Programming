@@ -2,6 +2,8 @@ package io.concurrency.async12.exam04;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * <b> ThenApplyExam </b>
@@ -15,6 +17,7 @@ public class ThenApplyExam {
 
         MyService myService = new MyService();
         long start = System.currentTimeMillis();
+        ExecutorService executorService = Executors.newFixedThreadPool(3);
         CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> {
             System.out.println("Thread(supplyAsync) : " + Thread.currentThread().getName());
             try {
@@ -24,19 +27,19 @@ public class ThenApplyExam {
             }
 
             return 30;
-        }).thenApply(result -> {
+        },executorService).thenApplyAsync(result -> {
 
             System.out.println("Thread(thenApply) : " + Thread.currentThread().getName());
             Integer data = myService.getData();
 
             return data + result;
-        }).thenApplyAsync(result -> {
+        },executorService).thenApplyAsync(result -> {
 
             System.out.println("Thread(thenApplyAsync) : " + Thread.currentThread().getName());
             Integer data = myService.getData2();
 
             return data + result;
-        });
+        },executorService);
         Integer result = future.join();
         System.out.println("result = " + result);
         System.out.println("End Time" + (System.currentTimeMillis() - start));
