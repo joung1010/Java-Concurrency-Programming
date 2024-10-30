@@ -17,8 +17,7 @@ public class ThenApplyExam {
 
         MyService myService = new MyService();
         long start = System.currentTimeMillis();
-        ExecutorService executorService = Executors.newFixedThreadPool(3);
-        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> {// 새로운 CompleteFuture 객체생성1
             System.out.println("Thread(supplyAsync) : " + Thread.currentThread().getName());
             try {
                 Thread.sleep(500);
@@ -27,19 +26,19 @@ public class ThenApplyExam {
             }
 
             return 30;
-        },executorService).thenApplyAsync(result -> {
+        }).thenApplyAsync(result -> {// 새로운 CompleteFuture 객체생성2
 
             System.out.println("Thread(thenApply) : " + Thread.currentThread().getName());
             Integer data = myService.getData();
 
             return data + result;
-        },executorService).thenApplyAsync(result -> {
+        }).thenApply(result -> {// 새로운 CompleteFuture 객체생성3
 
             System.out.println("Thread(thenApplyAsync) : " + Thread.currentThread().getName());
             Integer data = myService.getData2();
 
             return data + result;
-        },executorService);
+        });
         Integer result = future.join();
         System.out.println("result = " + result);
         System.out.println("End Time" + (System.currentTimeMillis() - start));
