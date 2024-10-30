@@ -26,19 +26,19 @@ public class ThenApplyExam {
             }
 
             return 30;
-        }).thenApplyAsync(result -> {// 새로운 CompleteFuture 객체생성2
+        }).thenApply(result -> {// 새로운 CompleteFuture 객체생성2
 
             System.out.println("Thread(thenApply) : " + Thread.currentThread().getName());
             Integer data = myService.getData();
 
             return data + result;
-        }).thenApply(result -> {// 새로운 CompleteFuture 객체생성3
+        })/*.thenApplyAsync(result -> {// 새로운 CompleteFuture 객체생성3
 
             System.out.println("Thread(thenApplyAsync) : " + Thread.currentThread().getName());
             Integer data = myService.getData2();
 
             return data + result;
-        });
+        })*/;
         Integer result = future.join();
         System.out.println("result = " + result);
         System.out.println("End Time" + (System.currentTimeMillis() - start));
