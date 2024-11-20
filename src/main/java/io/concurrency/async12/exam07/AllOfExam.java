@@ -20,8 +20,26 @@ public class AllOfExam {
         CompletableFuture<Integer> cf2 = serviceB.getData();
         CompletableFuture<Integer> cf3 = serviceC.getData();
 
+        long start = System.currentTimeMillis();
         CompletableFuture<Void> allOfCf = CompletableFuture.allOf(cf, cf2, cf3);
-        System.out.println("메인 스레드 종료"); //allOf만 호출한다고해서 모든작업이 끝날때까지 대기하지 않는다.
+//        allOfCf.join(); // 종료까지 대기
+        CompletableFuture<Integer> finalCf = allOfCf.thenApply(v -> {
+            Integer result1 = cf.join();
+            Integer result2 = cf2.join();
+            Integer result3 = cf3.join();
+
+            System.out.println("result1 = " + result1);
+            System.out.println("result2 = " + result2);
+            System.out.println("result3 = " + result3);
+            return result1 + result2 + result3;
+        });
+
+        Integer result = finalCf.join();
+        long end = System.currentTimeMillis();
+        System.out.println("최종 소요 시간!" + (end - start));
+        System.out.println("result = " + result);
+
+        System.out.println("메인 스레드 종료");
 
     }
 
@@ -32,6 +50,7 @@ public class AllOfExam {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     Thread.sleep(500);
+                    System.out.println("비동기 작업 시작1");
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -49,6 +68,7 @@ public class AllOfExam {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     Thread.sleep(500);
+                    System.out.println("비동기 작업 시작2");
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -65,7 +85,8 @@ public class AllOfExam {
         public CompletableFuture<Integer> getData() {
             return CompletableFuture.supplyAsync(() -> {
                 try {
-                    Thread.sleep(500);
+                    Thread.sleep(2000);
+                    System.out.println("비동기 작업 시작3");
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
